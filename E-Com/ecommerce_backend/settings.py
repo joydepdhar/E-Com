@@ -13,7 +13,8 @@ SECRET_KEY = env('SECRET_KEY', default='your-dev-secret')
 
 DEBUG = env.bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
+# ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
+ALLOWED_HOSTS = ['*']
 
 # Custom user model
 AUTH_USER_MODEL = 'user_app.CustomUser'
