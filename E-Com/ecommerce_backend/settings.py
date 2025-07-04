@@ -1,5 +1,4 @@
 from pathlib import Path
-import os
 import environ
 
 # Setup env variables
@@ -13,7 +12,7 @@ SECRET_KEY = env('SECRET_KEY', default='your-dev-secret')
 
 DEBUG = env.bool('DEBUG', default=False)
 
-# ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
+# Allow all hosts (for dev, change in production)
 ALLOWED_HOSTS = ['*']
 
 # Custom user model
@@ -27,16 +26,16 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     'rest_framework',
     'corsheaders',
-    
+
     'user_app',
     'store',
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # must be high
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # For static file handling
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -66,7 +65,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'ecommerce_backend.wsgi.application'
 
-# Database (default: SQLite, for production use PostgreSQL via env)
+# Database (default: SQLite, override with env)
 DATABASES = {
     'default': env.db(default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
 }
@@ -94,17 +93,21 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# REST Framework JWT
+# Django REST Framework config with JWT auth
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+    ),
 }
 
-# CORS (adjust when deploying React)
-CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
-    'http://localhost:3000',
-])
+# CORS settings - allow all origins for dev (change for production)
+CORS_ALLOW_ALL_ORIGINS = True
 
-# Default primary key type
+# If you prefer limiting to some origins, comment out above and use:
+# CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
+#     'http://localhost:3000',
+#     'http://localhost:5173',
+# ])
+
+# Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
