@@ -15,22 +15,24 @@ def category_list(request):
 
 # -------------------- PRODUCT --------------------
 @api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
 def product_list_create(request):
     if request.method == 'GET':
-        products = Product.objects.all()
-        serializer = ProductSerializer(products, many=True)
+        products = Product.objects.filter(is_active=True)
+        serializer = ProductSerializer(products, many=True, context={'request': request})
         return Response(serializer.data)
 
     if request.method == 'POST':
         if not request.user.is_staff:
             return Response({'error': 'Only admin can add products'}, status=403)
-        serializer = ProductSerializer(data=request.data)
+        serializer = ProductSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
 
 @api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([AllowAny])
 def product_detail(request, pk):
     try:
         product = Product.objects.get(pk=pk)
@@ -38,13 +40,13 @@ def product_detail(request, pk):
         return Response({'error': 'Product not found'}, status=404)
 
     if request.method == 'GET':
-        serializer = ProductSerializer(product)
+        serializer = ProductSerializer(product, context={'request': request})
         return Response(serializer.data)
 
     elif request.method == 'PUT':
         if not request.user.is_staff:
             return Response({'error': 'Only admin can update products'}, status=403)
-        serializer = ProductSerializer(product, data=request.data, partial=True)
+        serializer = ProductSerializer(product, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)

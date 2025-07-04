@@ -19,6 +19,7 @@ class ProductSerializer(serializers.ModelSerializer):
         source='category',
         write_only=True
     )
+    image = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -27,6 +28,12 @@ class ProductSerializer(serializers.ModelSerializer):
             'stock', 'is_active', 'created_at',
             'category', 'category_id'
         ]
+
+    def get_image(self, obj):
+        request = self.context.get('request')
+        if obj.image and hasattr(obj.image, 'url'):
+            return request.build_absolute_uri(obj.image.url)
+        return None
 
 # CART ITEM
 class CartItemSerializer(serializers.ModelSerializer):
