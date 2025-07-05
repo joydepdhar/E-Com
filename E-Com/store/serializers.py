@@ -10,6 +10,7 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ['id', 'name', 'slug']
+        read_only_fields = ['id']
 
 # PRODUCT
 class ProductSerializer(serializers.ModelSerializer):
@@ -28,11 +29,14 @@ class ProductSerializer(serializers.ModelSerializer):
             'stock', 'is_active', 'created_at',
             'category', 'category_id'
         ]
+        read_only_fields = ['id', 'created_at']
 
     def get_image(self, obj):
-        request = self.context.get('request')
-        if obj.image and hasattr(obj.image, 'url'):
+        request = self.context.get('request', None)
+        if request and obj.image and hasattr(obj.image, 'url'):
             return request.build_absolute_uri(obj.image.url)
+        elif obj.image:
+            return obj.image.url
         return None
 
 # CART ITEM
@@ -47,6 +51,7 @@ class CartItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = CartItem
         fields = ['id', 'product', 'product_id', 'quantity']
+        read_only_fields = ['id']
 
 # CART
 class CartSerializer(serializers.ModelSerializer):
@@ -55,7 +60,7 @@ class CartSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cart
         fields = ['id', 'user', 'created_at', 'items']
-        read_only_fields = ['user']
+        read_only_fields = ['id', 'user', 'created_at']
 
 # ORDER ITEM
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -69,18 +74,21 @@ class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
         fields = ['id', 'product', 'product_id', 'quantity', 'price']
+        read_only_fields = ['id']
 
 # SHIPPING
 class ShippingAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShippingAddress
         fields = ['id', 'address', 'city', 'postal_code', 'country']
+        read_only_fields = ['id']
 
 # PAYMENT
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = ['id', 'payment_method', 'payment_id', 'amount', 'is_successful', 'paid_at']
+        read_only_fields = ['id', 'is_successful', 'paid_at']
 
 # ORDER
 class OrderSerializer(serializers.ModelSerializer):
@@ -91,7 +99,7 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ['id', 'user', 'created_at', 'is_paid', 'total_price', 'status', 'order_items', 'shipping_address', 'payment']
-        read_only_fields = ['user', 'created_at', 'is_paid', 'total_price', 'status']
+        read_only_fields = ['id', 'user', 'created_at', 'is_paid', 'total_price', 'status']
 
 # REVIEW
 class ReviewSerializer(serializers.ModelSerializer):
@@ -106,4 +114,4 @@ class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = ['id', 'user', 'product', 'product_id', 'rating', 'comment', 'created_at']
-        read_only_fields = ['user', 'created_at']
+        read_only_fields = ['id', 'user', 'created_at']

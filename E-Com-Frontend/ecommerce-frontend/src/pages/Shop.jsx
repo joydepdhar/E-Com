@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 
-const BACKEND_URL = "https://e-com-fgbd.onrender.com";
+const BACKEND_URL = "https://e-com-fgbd.onrender.com/api/store";
 const GITHUB_IMAGE_BASE =
   "https://raw.githubusercontent.com/joydepdhar/E-Com/master/E-Com/media/product_images/";
 
@@ -14,8 +14,9 @@ function Shop() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Fetch products
     axios
-      .get(`${BACKEND_URL}/api/store/products/`)
+      .get(`${BACKEND_URL}/products/`)
       .then((res) => {
         setProducts(res.data);
         setLoading(false);
@@ -25,8 +26,9 @@ function Shop() {
         setLoading(false);
       });
 
+    // Fetch categories
     axios
-      .get(`${BACKEND_URL}/api/store/categories/`)
+      .get(`${BACKEND_URL}/categories/`)
       .then((res) => setCategories(res.data))
       .catch((err) => console.error("Error fetching categories:", err));
   }, []);
@@ -42,15 +44,30 @@ function Shop() {
       ? products
       : products.filter((p) => p.category?.name === selectedCategory);
 
-  const handleAddToCart = (productName) => {
+  const handleAddToCart = async (productId, productName) => {
     const accessToken = localStorage.getItem("access_token");
-    if (accessToken) {
-      // User logged in, proceed with adding to cart logic
-      alert(`Added "${productName}" to cart!`);
-      // TODO: Replace alert with real add to cart logic
-    } else {
-      // Not logged in, redirect to login page
+    if (!accessToken) {
       navigate("/login");
+      return;
+    }
+
+    try {
+      await axios.post(
+        `${BACKEND_URL}/cart/`,
+        {
+          product_id: productId,
+          quantity: 1,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+      alert(`"${productName}" added to cart!`);
+    } catch (error) {
+      console.error("Error adding to cart:", error.response || error);
+      alert("Failed to add product to cart. Try again.");
     }
   };
 
@@ -58,7 +75,9 @@ function Shop() {
     <div className="min-h-screen bg-gradient-to-b from-[#0f172a] via-[#1e293b] to-[#1e1b4b] text-[#f1f5f9]">
       {/* Categories Section */}
       <section className="py-12 px-4 max-w-7xl mx-auto">
-        <h2 className="text-3xl sm:text-4xl font-extrabold mb-6 text-center text-[#38bdf8]">🗂 Categories</h2>
+        <h2 className="text-3xl sm:text-4xl font-extrabold mb-6 text-center text-[#38bdf8]">
+          🗂 Categories
+        </h2>
         <div className="flex flex-wrap justify-center gap-3 mb-6">
           <button
             onClick={() => setSelectedCategory("All")}
@@ -112,13 +131,17 @@ function Shop() {
                   }}
                 />
                 <div className="p-5 flex-grow flex flex-col text-[#0f172a]">
-                  <h3 className="text-xl font-bold mb-1 truncate">{product.name}</h3>
+                  <h3 className="text-xl font-bold mb-1 truncate">
+                    {product.name}
+                  </h3>
                   <p className="text-sm mb-3 text-gray-600 line-clamp-2 flex-grow">
                     {product.description}
                   </p>
-                  <p className="text-[#7b2cbf] font-bold text-lg mb-3">${product.price}</p>
+                  <p className="text-[#7b2cbf] font-bold text-lg mb-3">
+                    ${product.price}
+                  </p>
                   <button
-                    onClick={() => handleAddToCart(product.name)}
+                    onClick={() => handleAddToCart(product.id, product.name)}
                     className="bg-[#7b2cbf] text-white font-semibold py-2 rounded hover:bg-[#6d28d9] transition"
                   >
                     Add to Cart

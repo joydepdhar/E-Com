@@ -1,7 +1,7 @@
 from django.db import models
 from django.conf import settings
 
-# CATEGORY
+# -------------------- CATEGORY --------------------
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(unique=True)
@@ -9,7 +9,8 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
-# PRODUCT
+
+# -------------------- PRODUCT --------------------
 class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='products')
     name = models.CharField(max_length=255)
@@ -23,7 +24,8 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
-# CART
+
+# -------------------- CART --------------------
 class Cart(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -31,24 +33,29 @@ class Cart(models.Model):
     def __str__(self):
         return f"{self.user.username}'s Cart"
 
+
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
     quantity = models.PositiveIntegerField(default=1)
 
     def __str__(self):
-        return f"{self.quantity} x {self.product.name}"
+        if self.product:
+            return f"{self.quantity} x {self.product.name}"
+        return f"{self.quantity} x [Deleted Product]"
 
-# ORDER
+
+# -------------------- ORDER --------------------
 class Order(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     is_paid = models.BooleanField(default=False)
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    status = models.CharField(max_length=20, default='Pending')  # Optional: Shipped, Delivered, Cancelled
+    status = models.CharField(max_length=20, default='Pending')  # e.g., Shipped, Delivered, Cancelled
 
     def __str__(self):
         return f"Order #{self.pk} by {self.user.username}"
+
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order_items')
@@ -57,9 +64,12 @@ class OrderItem(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
-        return f"{self.quantity} x {self.product.name}"
+        if self.product:
+            return f"{self.quantity} x {self.product.name}"
+        return f"{self.quantity} x [Deleted Product]"
 
-# SHIPPING ADDRESS
+
+# -------------------- SHIPPING ADDRESS --------------------
 class ShippingAddress(models.Model):
     order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='shipping_address')
     address = models.CharField(max_length=255)
@@ -70,7 +80,8 @@ class ShippingAddress(models.Model):
     def __str__(self):
         return f"Shipping for Order #{self.order.pk}"
 
-# PAYMENT
+
+# -------------------- PAYMENT --------------------
 class Payment(models.Model):
     order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='payment')
     payment_method = models.CharField(max_length=50)  # e.g., Stripe, PayPal
@@ -82,7 +93,8 @@ class Payment(models.Model):
     def __str__(self):
         return f"Payment for Order #{self.order.pk}"
 
-# REVIEW
+
+# -------------------- REVIEW --------------------
 class Review(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews')
