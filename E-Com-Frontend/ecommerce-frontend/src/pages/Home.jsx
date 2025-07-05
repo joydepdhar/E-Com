@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const BACKEND_URL = "https://e-com-fgbd.onrender.com";
 const GITHUB_IMAGE_BASE =
@@ -11,6 +11,7 @@ function Home() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const navigate = useNavigate();
 
   useEffect(() => {
     axios
@@ -34,6 +35,32 @@ function Home() {
     if (!imagePath) return "/fallback.png";
     const fileName = imagePath.split("/").pop();
     return `${GITHUB_IMAGE_BASE}${fileName}`;
+  };
+
+  const handleAddToCart = (product) => {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    axios
+      .post(
+        `${BACKEND_URL}/api/store/cart/`,
+        { product_id: product.id, quantity: 1 },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+      .then(() => {
+        alert(`✅ "${product.name}" added to cart`);
+      })
+      .catch((err) => {
+        console.error("Failed to add to cart:", err);
+        alert("Something went wrong. Please try again.");
+      });
   };
 
   const filteredProducts =
@@ -128,7 +155,7 @@ function Home() {
                   </p>
                   <p className="text-[#7b2cbf] font-bold text-lg mb-3">${product.price}</p>
                   <button
-                    onClick={() => alert(`Added "${product.name}" to cart!`)}
+                    onClick={() => handleAddToCart(product)}
                     className="bg-[#7b2cbf] text-white font-semibold py-2 rounded hover:bg-[#6d28d9] transition"
                   >
                     Add to Cart
