@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
-import { AuthContext } from "../pages/AuthContext"; // Adjust path
+import { AuthContext } from "../pages/AuthContext"; // Adjust path if needed
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
@@ -13,14 +13,14 @@ function Profile() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Redirect if not logged in
+  // Redirect to login if not authenticated
   useEffect(() => {
     if (!user) {
       navigate("/login");
     }
   }, [user, navigate]);
 
-  // Fetch user profile from API
+  // Fetch profile data
   useEffect(() => {
     if (!user) return;
 
@@ -28,14 +28,12 @@ function Profile() {
       setLoading(true);
       setError(null);
       try {
-        // Assuming your API requires Authorization header with Bearer token
         const token = localStorage.getItem("access_token");
         const response = await axios.get(`${BACKEND_URL}/api/user_app/profile/`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-
         setProfileData(response.data);
       } catch (err) {
         console.error("Failed to fetch profile:", err);
@@ -48,10 +46,10 @@ function Profile() {
     fetchProfile();
   }, [user]);
 
-  const editStyle =
+  const editButtonClass =
     "ml-2 text-sm px-2 py-1 bg-[#38bdf8] text-[#0f172a] rounded hover:bg-[#7b2cbf] cursor-pointer";
 
-  if (!user) return null; // Or loading spinner
+  if (!user) return null; // Or a spinner if you prefer
 
   if (loading)
     return (
@@ -70,16 +68,18 @@ function Profile() {
   return (
     <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center justify-center px-4 py-12">
       <div className="bg-[#1e293b] p-8 rounded-xl shadow-lg max-w-md w-full space-y-6">
-        <h2 className="text-3xl font-bold text-center text-[#38bdf8]">
-          My Profile
-        </h2>
+        <h2 className="text-3xl font-bold text-center text-[#38bdf8]">My Profile</h2>
 
         <div className="flex justify-center">
           {profileData.profile_picture ? (
             <img
-              src={profileData.profile_picture}
+              src={profileData.profile_picture} // Use absolute URL from backend as-is
               alt={`${profileData.username} profile`}
               className="w-32 h-32 rounded-full object-cover border-4 border-[#38bdf8]"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = "/default-profile.png"; // Optional fallback image if broken
+              }}
             />
           ) : (
             <div className="w-32 h-32 rounded-full bg-gray-700 flex items-center justify-center text-4xl text-[#7b2cbf] font-bold">
@@ -98,7 +98,7 @@ function Profile() {
           <p>
             <strong>Address:</strong> {profileData.address || "Not set"}
             <button
-              className={editStyle}
+              className={editButtonClass}
               onClick={() => navigate("/edit-profile")}
               aria-label="Edit Address"
               title="Edit Address"
@@ -109,7 +109,7 @@ function Profile() {
           <p>
             <strong>Phone:</strong> {profileData.phone || "Not set"}
             <button
-              className={editStyle}
+              className={editButtonClass}
               onClick={() => navigate("/edit-profile")}
               aria-label="Edit Phone"
               title="Edit Phone"

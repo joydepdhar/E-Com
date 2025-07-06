@@ -23,8 +23,10 @@ function Login() {
         password,
       });
 
-      // Call login from context
-      login(username, res.data.access, res.data.refresh);
+      console.log("Tokens from backend:", res.data.access, res.data.refresh);
+
+      // Await login to ensure tokens are stored and profile is fetched before redirect
+      await login(username, res.data.access, res.data.refresh);
 
       alert("Login successful!");
       navigate("/shop");

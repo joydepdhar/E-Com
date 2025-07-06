@@ -5,14 +5,15 @@ from .models import (
     Payment, Review
 )
 
-# CATEGORY
+# -------------------- CATEGORY --------------------
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ['id', 'name', 'slug']
         read_only_fields = ['id']
 
-# PRODUCT
+
+# -------------------- PRODUCT --------------------
 class ProductSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     category_id = serializers.PrimaryKeyRelatedField(
@@ -39,7 +40,8 @@ class ProductSerializer(serializers.ModelSerializer):
             return obj.image.url
         return None
 
-# CART ITEM
+
+# -------------------- CART ITEM --------------------
 class CartItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
     product_id = serializers.PrimaryKeyRelatedField(
@@ -53,16 +55,22 @@ class CartItemSerializer(serializers.ModelSerializer):
         fields = ['id', 'product', 'product_id', 'quantity']
         read_only_fields = ['id']
 
-# CART
+
+# -------------------- CART --------------------
 class CartSerializer(serializers.ModelSerializer):
     items = CartItemSerializer(many=True, read_only=True)
+    total_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Cart
-        fields = ['id', 'user', 'created_at', 'items']
+        fields = ['id', 'user', 'created_at', 'items', 'total_price']
         read_only_fields = ['id', 'user', 'created_at']
 
-# ORDER ITEM
+    def get_total_price(self, obj):
+        return sum([item.quantity * item.product.price for item in obj.items.all()])
+
+
+# -------------------- ORDER ITEM --------------------
 class OrderItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
     product_id = serializers.PrimaryKeyRelatedField(
@@ -76,21 +84,24 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = ['id', 'product', 'product_id', 'quantity', 'price']
         read_only_fields = ['id']
 
-# SHIPPING
+
+# -------------------- SHIPPING --------------------
 class ShippingAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShippingAddress
         fields = ['id', 'address', 'city', 'postal_code', 'country']
         read_only_fields = ['id']
 
-# PAYMENT
+
+# -------------------- PAYMENT --------------------
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = ['id', 'payment_method', 'payment_id', 'amount', 'is_successful', 'paid_at']
         read_only_fields = ['id', 'is_successful', 'paid_at']
 
-# ORDER
+
+# -------------------- ORDER --------------------
 class OrderSerializer(serializers.ModelSerializer):
     order_items = OrderItemSerializer(many=True, read_only=True)
     shipping_address = ShippingAddressSerializer(read_only=True)
@@ -99,9 +110,10 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ['id', 'user', 'created_at', 'is_paid', 'total_price', 'status', 'order_items', 'shipping_address', 'payment']
-        read_only_fields = ['id', 'user', 'created_at', 'is_paid', 'total_price', 'status']
+        read_only_fields = ['id', 'user', 'created_at', 'is_paid', 'total_price']
 
-# REVIEW
+
+# -------------------- REVIEW --------------------
 class ReviewSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField(read_only=True)
     product = serializers.StringRelatedField(read_only=True)

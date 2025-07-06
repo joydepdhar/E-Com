@@ -12,16 +12,19 @@ function Register() {
     confirmPassword: "",
     address: "",
     phone: "",
-    // profile_picture: null, // exclude for now
+    profile_picture: null,
   });
 
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
-    const { name, value /* files */ } = e.target;
-    // no file upload in this version
-    setFormData({ ...formData, [name]: value });
+    const { name, value, files } = e.target;
+    if (name === "profile_picture") {
+      setFormData({ ...formData, profile_picture: files[0] });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
   };
 
   const handleRegister = async (e) => {
@@ -32,19 +35,22 @@ function Register() {
       return setError("Passwords do not match");
     }
 
-    const payload = {
-      username: formData.username,
-      email: formData.email,
-      password: formData.password,
-      password2: formData.confirmPassword,
-      address: formData.address,
-      phone: formData.phone,
-      // profile_picture excluded here
-    };
+    const payload = new FormData();
+    payload.append("username", formData.username);
+    payload.append("email", formData.email);
+    payload.append("password", formData.password);
+    payload.append("password2", formData.confirmPassword);
+    payload.append("address", formData.address);
+    payload.append("phone", formData.phone);
+    if (formData.profile_picture) {
+      payload.append("profile_picture", formData.profile_picture);
+    }
 
     try {
       await axios.post(`${BACKEND_URL}/api/user_app/register/`, payload, {
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
 
       navigate("/login");
@@ -71,7 +77,9 @@ function Register() {
         onSubmit={handleRegister}
         className="bg-[#1e293b] border border-[#7b2cbf] p-10 rounded-2xl shadow-2xl w-full max-w-lg space-y-5"
       >
-        <h2 className="text-3xl font-bold text-center text-[#38bdf8]">Join AuraArcade</h2>
+        <h2 className="text-3xl font-bold text-center text-[#38bdf8]">
+          Join AuraArcade
+        </h2>
         <p className="text-center text-gray-400 text-sm mb-4">
           Create your account to start shopping!
         </p>
@@ -136,6 +144,14 @@ function Register() {
             value={formData.phone}
             onChange={handleChange}
             className="w-full px-4 py-2 placeholder-gray-400 rounded-lg bg-[#0f172a] border border-[#38bdf8] text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
+          />
+
+          <input
+            type="file"
+            name="profile_picture"
+            accept="image/*"
+            onChange={handleChange}
+            className="w-full text-sm text-gray-400"
           />
         </div>
 

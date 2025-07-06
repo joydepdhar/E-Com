@@ -1,25 +1,31 @@
 from pathlib import Path
 import environ
+import os
 
-# Setup env variables
-env = environ.Env(DEBUG=(bool, False))
-environ.Env.read_env()
-
+# Define BASE_DIR before using it
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env('SECRET_KEY', default='your-dev-secret')
+# Initialize environment variables
+env = environ.Env(
+    DEBUG=(bool, False)
+)
 
+# Read the .env file at BASE_DIR
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
+# SECURITY
+SECRET_KEY = env('SECRET_KEY', default='your-dev-secret-key')
 DEBUG = env.bool('DEBUG', default=False)
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
 
-# Allow all hosts (for dev, change in production)
-ALLOWED_HOSTS = ['*']
+# CORS
+CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
+    'http://localhost:3000',
+])
 
-# Custom user model
-AUTH_USER_MODEL = 'user_app.CustomUser'
-
-# Installed apps
+# Application definition
 INSTALLED_APPS = [
+    # Django apps
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -27,17 +33,21 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    # Third-party apps
     'rest_framework',
     'corsheaders',
+    'cloudinary',
+    'cloudinary_storage',
 
+    # Your apps
     'user_app',
     'store',
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # must be high
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # For static file handling
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # static files middleware
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -51,7 +61,7 @@ ROOT_URLCONF = 'ecommerce_backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [],  # add your templates dirs here if any
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -65,10 +75,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'ecommerce_backend.wsgi.application'
 
-# Database (default: SQLite, override with env)
+# Database configuration (default to sqlite3)
 DATABASES = {
     'default': env.db(default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
 }
+
+# Custom user model
+AUTH_USER_MODEL = 'user_app.CustomUser'
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -84,30 +97,27 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# Static and media files
+# Static files (CSS, JavaScript)
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# Media files — upload to Cloudinary
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
-# Django REST Framework config with JWT auth
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': env('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': env('CLOUDINARY_API_KEY'),
+    'API_SECRET': env('CLOUDINARY_API_SECRET'),
+}
+
+# Django REST Framework with JWT authentication
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }
-
-# CORS settings - allow all origins for dev (change for production)
-CORS_ALLOW_ALL_ORIGINS = True
-
-# If you prefer limiting to some origins, comment out above and use:
-# CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
-#     'http://localhost:3000',
-#     'http://localhost:5173',
-# ])
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
