@@ -3,8 +3,6 @@ import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 
 const BACKEND_URL = "https://e-com-fgbd.onrender.com/api/store";
-const GITHUB_IMAGE_BASE =
-  "https://raw.githubusercontent.com/joydepdhar/E-Com/master/E-Com/media/product_images/";
 
 function Shop() {
   const [products, setProducts] = useState([]);
@@ -33,10 +31,9 @@ function Shop() {
       .catch((err) => console.error("Error fetching categories:", err));
   }, []);
 
+  // ✅ Use image URL directly (e.g., Cloudinary URL)
   const getImageUrl = (imagePath) => {
-    if (!imagePath) return "/fallback.png";
-    const fileName = imagePath.split("/").pop();
-    return `${GITHUB_IMAGE_BASE}${fileName}`;
+    return imagePath || "/fallback.png";
   };
 
   const filteredProducts =

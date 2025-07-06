@@ -33,8 +33,17 @@ class ProductSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at']
 
     def get_image(self, obj):
+        """
+        Ensure full URL for image whether hosted on Cloudinary or locally.
+        """
+        request = self.context.get("request")
         if obj.image:
-            return str(obj.image)  # Cloudinary URL as string
+            url = obj.image.url
+            if url.startswith("http"):
+                return url
+            elif request:
+                return request.build_absolute_uri(url)
+            return url
         return None
 
 
@@ -64,7 +73,10 @@ class CartSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'user', 'created_at']
 
     def get_total_price(self, obj):
-        return sum([item.quantity * item.product.price for item in obj.items.all()])
+        return sum([
+            item.quantity * item.product.price for item in obj.items.all()
+            if item.product
+        ])
 
 
 # -------------------- ORDER ITEM --------------------
@@ -82,7 +94,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
 
-# -------------------- SHIPPING --------------------
+# -------------------- SHIPPING ADDRESS --------------------
 class ShippingAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShippingAddress
