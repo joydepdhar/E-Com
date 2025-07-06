@@ -33,11 +33,8 @@ class ProductSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at']
 
     def get_image(self, obj):
-        request = self.context.get('request', None)
-        if request and obj.image and hasattr(obj.image, 'url'):
-            return request.build_absolute_uri(obj.image.url)
-        elif obj.image:
-            return obj.image.url
+        if obj.image:
+            return str(obj.image)  # Cloudinary URL as string
         return None
 
 
@@ -109,7 +106,10 @@ class OrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ['id', 'user', 'created_at', 'is_paid', 'total_price', 'status', 'order_items', 'shipping_address', 'payment']
+        fields = [
+            'id', 'user', 'created_at', 'is_paid', 'total_price',
+            'status', 'order_items', 'shipping_address', 'payment'
+        ]
         read_only_fields = ['id', 'user', 'created_at', 'is_paid', 'total_price']
 
 
