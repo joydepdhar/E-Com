@@ -31,8 +31,12 @@ function Home() {
       .catch((err) => console.error("Error fetching categories:", err));
   }, []);
 
+  // Fixed image URL logic:
   const getImageUrl = (imagePath) => {
     if (!imagePath) return "/fallback.png";
+    if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
+      return imagePath;
+    }
     const fileName = imagePath.split("/").pop();
     return `${GITHUB_IMAGE_BASE}${fileName}`;
   };
@@ -72,7 +76,9 @@ function Home() {
     <div className="min-h-screen bg-gradient-to-b from-[#0f172a] via-[#1e293b] to-[#1e1b4b] text-[#f1f5f9]">
       {/* Hero Section */}
       <section className="text-center py-20 px-4 shadow-inner bg-[#0f172a]">
-        <h1 className="text-4xl sm:text-5xl font-bold mb-2 text-white">Welcome to</h1>
+        <h1 className="text-4xl sm:text-5xl font-bold mb-2 text-white">
+          Welcome to
+        </h1>
         <h1
           className="text-4xl sm:text-5xl font-extrabold mb-6 bg-clip-text text-transparent"
           style={{
@@ -95,7 +101,9 @@ function Home() {
 
       {/* Categories Section */}
       <section className="py-12 px-4 max-w-7xl mx-auto">
-        <h2 className="text-3xl sm:text-4xl font-extrabold mb-6 text-center text-[#38bdf8]">🗂 Categories</h2>
+        <h2 className="text-3xl sm:text-4xl font-extrabold mb-6 text-center text-[#38bdf8]">
+          🗂 Categories
+        </h2>
         <div className="flex flex-wrap justify-center gap-3 mb-6">
           <button
             onClick={() => setSelectedCategory("All")}
@@ -184,9 +192,7 @@ function Home() {
           </div>
           <div className="bg-[#0f172a] p-6 rounded-xl shadow hover:shadow-2xl transition">
             <h4 className="text-lg font-bold mb-2 text-[#38bdf8]">⚡ Lightning Delivery</h4>
-            <p className="text-[#f1f5f9cc]">
-              We race to your door with express shipping on every order.
-            </p>
+            <p className="text-[#f1f5f9cc]">We race to your door with express shipping on every order.</p>
           </div>
           <div className="bg-[#0f172a] p-6 rounded-xl shadow hover:shadow-2xl transition">
             <h4 className="text-lg font-bold mb-2 text-[#38bdf8]">💬 Always-On Support</h4>

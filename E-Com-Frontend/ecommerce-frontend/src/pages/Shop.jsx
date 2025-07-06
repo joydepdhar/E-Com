@@ -12,7 +12,6 @@ function Shop() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Fetch products
     axios
       .get(`${BACKEND_URL}/products/`)
       .then((res) => {
@@ -24,14 +23,12 @@ function Shop() {
         setLoading(false);
       });
 
-    // Fetch categories
     axios
       .get(`${BACKEND_URL}/categories/`)
       .then((res) => setCategories(res.data))
       .catch((err) => console.error("Error fetching categories:", err));
   }, []);
 
-  // ✅ Use image URL directly (e.g., Cloudinary URL)
   const getImageUrl = (imagePath) => {
     return imagePath || "/fallback.png";
   };
@@ -47,6 +44,8 @@ function Shop() {
       navigate("/login");
       return;
     }
+
+    console.log("Adding to cart productId:", productId); // Debug
 
     try {
       await axios.post(
@@ -64,13 +63,21 @@ function Shop() {
       alert(`"${productName}" added to cart!`);
     } catch (error) {
       console.error("Error adding to cart:", error.response || error);
-      alert("Failed to add product to cart. Try again.");
+      if (error.response && error.response.status === 401) {
+        // Unauthorized, token might be invalid/expired
+        alert("Session expired. Please login again.");
+        localStorage.removeItem("access_token");
+        navigate("/login");
+      } else if (error.response && error.response.data.error) {
+        alert(`Failed to add product: ${error.response.data.error}`);
+      } else {
+        alert("Failed to add product to cart. Try again.");
+      }
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0f172a] via-[#1e293b] to-[#1e1b4b] text-[#f1f5f9]">
-      {/* Categories Section */}
       <section className="py-12 px-4 max-w-7xl mx-auto">
         <h2 className="text-3xl sm:text-4xl font-extrabold mb-6 text-center text-[#38bdf8]">
           🗂 Categories
@@ -102,7 +109,6 @@ function Shop() {
         </div>
       </section>
 
-      {/* Products Section */}
       <section className="py-16 px-4 max-w-7xl mx-auto">
         <h2 className="text-3xl sm:text-4xl font-extrabold mb-8 text-center text-[#38bdf8]">
           🌟 Featured Products
@@ -128,15 +134,11 @@ function Shop() {
                   }}
                 />
                 <div className="p-5 flex-grow flex flex-col text-[#0f172a]">
-                  <h3 className="text-xl font-bold mb-1 truncate">
-                    {product.name}
-                  </h3>
+                  <h3 className="text-xl font-bold mb-1 truncate">{product.name}</h3>
                   <p className="text-sm mb-3 text-gray-600 line-clamp-2 flex-grow">
                     {product.description}
                   </p>
-                  <p className="text-[#7b2cbf] font-bold text-lg mb-3">
-                    ${product.price}
-                  </p>
+                  <p className="text-[#7b2cbf] font-bold text-lg mb-3">${product.price}</p>
                   <button
                     onClick={() => handleAddToCart(product.id, product.name)}
                     className="bg-[#7b2cbf] text-white font-semibold py-2 rounded hover:bg-[#6d28d9] transition"
