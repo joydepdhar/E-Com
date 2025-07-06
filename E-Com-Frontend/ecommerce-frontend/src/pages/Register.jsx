@@ -41,7 +41,7 @@ function Register() {
     payload.append("username", formData.username);
     payload.append("email", formData.email);
     payload.append("password", formData.password);
-    payload.append("password2", formData.confirmPassword); // match your backend field name
+    payload.append("password2", formData.confirmPassword); // match your backend serializer
     payload.append("address", formData.address);
     payload.append("phone", formData.phone);
     if (formData.profile_picture) {
@@ -50,33 +50,27 @@ function Register() {
 
     try {
       setLoading(true);
-      await axios.post(`${BACKEND_URL}/api/user_app/register/`, payload, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+
+      await axios.post(`${BACKEND_URL}/api/user_app/register/`, payload);
       setLoading(false);
       navigate("/login");
     } catch (err) {
       setLoading(false);
 
-      // If no response from server (network or CORS)
       if (!err.response) {
-        setError("Network error or CORS issue. Please check backend and frontend origins.");
-        console.error("Error details:", err);
+        setError("Network error. Please check your backend and internet connection.");
         return;
       }
 
-      // Handle backend validation errors
       const errors = err.response.data || {};
       const errorMsg =
-        errors.email?.[0] ||
         errors.username?.[0] ||
+        errors.email?.[0] ||
         errors.password?.[0] ||
         errors.password2?.[0] ||
+        errors.non_field_errors?.[0] ||
         errors.detail ||
-        JSON.stringify(errors) ||
-        "Registration failed. Please try again.";
+        "Registration failed. Please check all fields.";
 
       setError(errorMsg);
     }
@@ -89,7 +83,9 @@ function Register() {
         className="bg-[#1e293b] border border-[#7b2cbf] p-10 rounded-2xl shadow-2xl w-full max-w-lg space-y-5"
       >
         <h2 className="text-3xl font-bold text-center text-[#38bdf8]">Join AuraArcade</h2>
-        <p className="text-center text-gray-400 text-sm mb-4">Create your account to start shopping!</p>
+        <p className="text-center text-gray-400 text-sm mb-4">
+          Create your account to start shopping!
+        </p>
 
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
@@ -100,9 +96,8 @@ function Register() {
             placeholder="Username"
             value={formData.username}
             onChange={handleChange}
-            className="w-full px-4 py-2 placeholder-gray-400 rounded-lg bg-[#0f172a] border border-[#38bdf8] text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
+            className="w-full px-4 py-2 rounded-lg bg-[#0f172a] border border-[#38bdf8] placeholder-gray-400 text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
             required
-            maxLength={150}
           />
           <input
             type="email"
@@ -110,7 +105,7 @@ function Register() {
             placeholder="Email"
             value={formData.email}
             onChange={handleChange}
-            className="w-full px-4 py-2 placeholder-gray-400 rounded-lg bg-[#0f172a] border border-[#38bdf8] text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
+            className="w-full px-4 py-2 rounded-lg bg-[#0f172a] border border-[#38bdf8] placeholder-gray-400 text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
             required
           />
           <input
@@ -119,7 +114,7 @@ function Register() {
             placeholder="Password"
             value={formData.password}
             onChange={handleChange}
-            className="w-full px-4 py-2 placeholder-gray-400 rounded-lg bg-[#0f172a] border border-[#38bdf8] text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
+            className="w-full px-4 py-2 rounded-lg bg-[#0f172a] border border-[#38bdf8] placeholder-gray-400 text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
             required
           />
           <input
@@ -128,7 +123,7 @@ function Register() {
             placeholder="Confirm Password"
             value={formData.confirmPassword}
             onChange={handleChange}
-            className="w-full px-4 py-2 placeholder-gray-400 rounded-lg bg-[#0f172a] border border-[#38bdf8] text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
+            className="w-full px-4 py-2 rounded-lg bg-[#0f172a] border border-[#38bdf8] placeholder-gray-400 text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
             required
           />
           <input
@@ -137,7 +132,7 @@ function Register() {
             placeholder="Address"
             value={formData.address}
             onChange={handleChange}
-            className="w-full px-4 py-2 placeholder-gray-400 rounded-lg bg-[#0f172a] border border-[#38bdf8] text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
+            className="w-full px-4 py-2 rounded-lg bg-[#0f172a] border border-[#38bdf8] placeholder-gray-400 text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
           />
           <input
             type="tel"
@@ -145,14 +140,14 @@ function Register() {
             placeholder="Phone"
             value={formData.phone}
             onChange={handleChange}
-            className="w-full px-4 py-2 placeholder-gray-400 rounded-lg bg-[#0f172a] border border-[#38bdf8] text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
+            className="w-full px-4 py-2 rounded-lg bg-[#0f172a] border border-[#38bdf8] placeholder-gray-400 text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
           />
           <input
             type="file"
             name="profile_picture"
             accept="image/*"
             onChange={handleChange}
-            className="w-full text-sm text-gray-400"
+            className="w-full text-sm text-gray-300"
           />
         </div>
 
@@ -160,7 +155,7 @@ function Register() {
           type="submit"
           disabled={loading}
           className={`w-full mt-6 py-3 text-[#0f172a] font-semibold text-lg rounded-lg transition-all duration-200 ${
-            loading ? "bg-gray-400 cursor-not-allowed" : "bg-[#38bdf8] hover:bg-[#7b2cbf]"
+            loading ? "bg-gray-400 cursor-not-allowed" : "bg-[#38bdf8] hover:bg-[#7b2cbf] hover:text-white"
           }`}
         >
           {loading ? "Registering..." : "Register"}
