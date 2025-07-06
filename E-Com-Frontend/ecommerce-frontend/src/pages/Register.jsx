@@ -16,14 +16,15 @@ function Register() {
   });
 
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
     if (name === "profile_picture") {
-      setFormData({ ...formData, profile_picture: files[0] });
+      setFormData((prev) => ({ ...prev, profile_picture: files[0] }));
     } else {
-      setFormData({ ...formData, [name]: value });
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
@@ -32,14 +33,15 @@ function Register() {
     setError(null);
 
     if (formData.password !== formData.confirmPassword) {
-      return setError("Passwords do not match");
+      setError("Passwords do not match");
+      return;
     }
 
     const payload = new FormData();
     payload.append("username", formData.username);
     payload.append("email", formData.email);
     payload.append("password", formData.password);
-    payload.append("password2", formData.confirmPassword);
+    payload.append("password2", formData.confirmPassword); // match your backend field name
     payload.append("address", formData.address);
     payload.append("phone", formData.phone);
     if (formData.profile_picture) {
@@ -47,17 +49,26 @@ function Register() {
     }
 
     try {
+      setLoading(true);
       await axios.post(`${BACKEND_URL}/api/user_app/register/`, payload, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
-
+      setLoading(false);
       navigate("/login");
     } catch (err) {
-      console.error("Register error response:", err.response);
+      setLoading(false);
 
-      const errors = err.response?.data || {};
+      // If no response from server (network or CORS)
+      if (!err.response) {
+        setError("Network error or CORS issue. Please check backend and frontend origins.");
+        console.error("Error details:", err);
+        return;
+      }
+
+      // Handle backend validation errors
+      const errors = err.response.data || {};
       const errorMsg =
         errors.email?.[0] ||
         errors.username?.[0] ||
@@ -77,12 +88,8 @@ function Register() {
         onSubmit={handleRegister}
         className="bg-[#1e293b] border border-[#7b2cbf] p-10 rounded-2xl shadow-2xl w-full max-w-lg space-y-5"
       >
-        <h2 className="text-3xl font-bold text-center text-[#38bdf8]">
-          Join AuraArcade
-        </h2>
-        <p className="text-center text-gray-400 text-sm mb-4">
-          Create your account to start shopping!
-        </p>
+        <h2 className="text-3xl font-bold text-center text-[#38bdf8]">Join AuraArcade</h2>
+        <p className="text-center text-gray-400 text-sm mb-4">Create your account to start shopping!</p>
 
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
@@ -97,7 +104,6 @@ function Register() {
             required
             maxLength={150}
           />
-
           <input
             type="email"
             name="email"
@@ -107,7 +113,6 @@ function Register() {
             className="w-full px-4 py-2 placeholder-gray-400 rounded-lg bg-[#0f172a] border border-[#38bdf8] text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
             required
           />
-
           <input
             type="password"
             name="password"
@@ -117,7 +122,6 @@ function Register() {
             className="w-full px-4 py-2 placeholder-gray-400 rounded-lg bg-[#0f172a] border border-[#38bdf8] text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
             required
           />
-
           <input
             type="password"
             name="confirmPassword"
@@ -127,7 +131,6 @@ function Register() {
             className="w-full px-4 py-2 placeholder-gray-400 rounded-lg bg-[#0f172a] border border-[#38bdf8] text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
             required
           />
-
           <input
             type="text"
             name="address"
@@ -136,7 +139,6 @@ function Register() {
             onChange={handleChange}
             className="w-full px-4 py-2 placeholder-gray-400 rounded-lg bg-[#0f172a] border border-[#38bdf8] text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
           />
-
           <input
             type="tel"
             name="phone"
@@ -145,7 +147,6 @@ function Register() {
             onChange={handleChange}
             className="w-full px-4 py-2 placeholder-gray-400 rounded-lg bg-[#0f172a] border border-[#38bdf8] text-white focus:ring-2 focus:ring-[#7b2cbf] outline-none"
           />
-
           <input
             type="file"
             name="profile_picture"
@@ -157,9 +158,12 @@ function Register() {
 
         <button
           type="submit"
-          className="w-full mt-6 py-3 bg-[#38bdf8] hover:bg-[#7b2cbf] text-[#0f172a] font-semibold text-lg rounded-lg transition-all duration-200"
+          disabled={loading}
+          className={`w-full mt-6 py-3 text-[#0f172a] font-semibold text-lg rounded-lg transition-all duration-200 ${
+            loading ? "bg-gray-400 cursor-not-allowed" : "bg-[#38bdf8] hover:bg-[#7b2cbf]"
+          }`}
         >
-          Register
+          {loading ? "Registering..." : "Register"}
         </button>
       </form>
     </div>
