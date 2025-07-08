@@ -7,6 +7,10 @@ import Register from "./pages/Register";
 import Shop from "./pages/Shop";
 import Profile from "./pages/Profile";
 import Cart from "./pages/Cart";
+import Shipping from "./pages/Shipping";
+import Order from "./pages/Order";
+import Payment from "./pages/Payment";
+import Review from "./pages/Review";
 
 function App() {
   return (
@@ -19,6 +23,10 @@ function App() {
         <Route path="/shop" element={<Shop />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/cart" element={<Cart />} />
+        <Route path="/order" element={<Order />} />
+         <Route path="/shipping" element={<Shipping/>} />
+         <Route path="/payment" element={<Payment />} />
+         <Route path="/review" element={<Review />} />
       </Routes>
       <Footer />
     </BrowserRouter>

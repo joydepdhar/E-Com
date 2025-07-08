@@ -1,3 +1,4 @@
+// src/pages/Cart.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
@@ -19,9 +20,7 @@ function Cart() {
 
     axios
       .get(`${BACKEND_URL}/api/store/cart/`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: { Authorization: `Bearer ${accessToken}` },
       })
       .then((res) => {
         setCart(res.data);
@@ -36,9 +35,7 @@ function Cart() {
   const handleRemove = (itemId) => {
     axios
       .delete(`${BACKEND_URL}/api/store/cart/remove/${itemId}/`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: { Authorization: `Bearer ${accessToken}` },
       })
       .then(() => {
         setCart((prev) => ({
@@ -54,6 +51,37 @@ function Cart() {
       (acc, item) => acc + parseFloat(item.product.price) * item.quantity,
       0
     ) || 0;
+
+  const handleCheckout = async () => {
+    if (!cart?.items?.length) {
+      alert("Cart is empty.");
+      return;
+    }
+
+    try {
+      const res = await axios.post(
+        `${BACKEND_URL}/api/store/orders/create/`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      const { order_id } = res.data;
+      const total = getTotal();
+
+      // Store for later use in Shipping and Payment
+      localStorage.setItem("order_id", order_id);
+      localStorage.setItem("total_price", total);
+
+      navigate("/shipping");
+    } catch (error) {
+      console.error("Order creation failed:", error);
+      alert("Failed to create order. Please try again.");
+    }
+  };
 
   if (loading) {
     return (
@@ -95,21 +123,15 @@ function Cart() {
                     }}
                   />
                   <div className="flex-grow">
-                    <h3 className="text-lg font-semibold">
-                      {item.product.name}
-                    </h3>
-                    <p className="text-sm text-gray-400">
-                      Quantity: {item.quantity}
-                    </p>
+                    <h3 className="text-lg font-semibold">{item.product.name}</h3>
+                    <p className="text-sm text-gray-400">Quantity: {item.quantity}</p>
                     <p className="text-sm text-gray-400">
                       Price: ${parseFloat(item.product.price).toFixed(2)}
                     </p>
                   </div>
                   <div className="text-right font-bold text-yellow-400">
                     $
-                    {(
-                      parseFloat(item.product.price) * item.quantity
-                    ).toFixed(2)}
+                    {(parseFloat(item.product.price) * item.quantity).toFixed(2)}
                     <button
                       onClick={() => handleRemove(item.id)}
                       className="ml-4 text-red-500 hover:underline text-sm"
@@ -123,16 +145,13 @@ function Cart() {
 
             <div className="mt-8 text-right">
               <p className="text-xl font-bold mb-4">
-                Total:{" "}
-                <span className="text-yellow-400">
-                  ${getTotal().toFixed(2)}
-                </span>
+                Total: <span className="text-yellow-400">${getTotal().toFixed(2)}</span>
               </p>
               <button
-                onClick={() => alert("Checkout coming soon!")}
+                onClick={handleCheckout}
                 className="bg-purple-700 text-white px-6 py-2 rounded hover:bg-purple-800 transition"
               >
-                Proceed to Checkout
+                Proceed to Shipping
               </button>
             </div>
           </>
