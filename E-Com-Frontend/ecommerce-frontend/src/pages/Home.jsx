@@ -172,7 +172,6 @@ function Home() {
                     to={`/products/${product.id}`}
                     className="text-sm text-[#7b2cbf] mt-2 hover:underline"
                   >
-                    View Details
                   </Link>
                 </div>
               </div>
