@@ -92,7 +92,7 @@ function Home() {
         <p className="text-md sm:text-lg mb-6 max-w-xl mx-auto font-medium text-[#f1f5f9cc]">
           Dive into a vibrant shopping experience where fun meets fashion.
         </p>
-        <Link to="/products">
+        <Link to="/shop">
           <button className="px-8 py-3 bg-[#f1f5f9] text-[#0f172a] font-bold rounded-full shadow-lg hover:bg-[#7b2cbf] hover:text-white transition transform hover:scale-105">
             🛍️ Shop Now
           </button>
