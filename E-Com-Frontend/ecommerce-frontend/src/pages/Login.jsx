@@ -3,12 +3,13 @@ import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../pages/AuthContext";
 
-const BACKEND_URL = "https://e-com-fgbd.onrender.com";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
 function Login() {
-  const [username, setUsername] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const { login } = useContext(AuthContext);
@@ -16,27 +17,61 @@ function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
+    setLoading(true);
 
     try {
-      const res = await axios.post(`${BACKEND_URL}/api/user_app/login/`, {
-        username,
-        password,
-      });
+      const payload = identifier.includes("@")
+        ? { email: identifier, password }
+        : { username: identifier, password };
 
-      console.log("Tokens from backend:", res.data.access, res.data.refresh);
+      console.log("Login request payload:", payload, "URL:", `${BACKEND_URL}/api/user_app/login/`);
+      const res = await axios.post(`${BACKEND_URL}/api/user_app/login/`, payload);
 
-      // Await login to ensure tokens are stored and profile is fetched before redirect
-      await login(username, res.data.access, res.data.refresh);
+      const accessToken =
+        res.data?.access ||
+        res.data?.access_token ||
+        res.data?.token?.access ||
+        res.data?.tokens?.access;
+      const refreshToken =
+        res.data?.refresh ||
+        res.data?.refresh_token ||
+        res.data?.token?.refresh ||
+        res.data?.tokens?.refresh;
+
+      if (!accessToken || !refreshToken) {
+        console.error("Login response body:", res.data);
+        throw new Error("Login response did not include access tokens.");
+      }
+
+      console.log("Tokens from backend:", accessToken, refreshToken);
+
+      const userProfile = await login(identifier, accessToken, refreshToken);
 
       alert("Login successful!");
-      navigate("/shop");
+
+      const isAdmin =
+        userProfile?.is_superuser ||
+        userProfile?.role?.toString()?.toLowerCase() === "admin";
+      const isStaff = userProfile?.is_staff && !isAdmin;
+
+      if (isAdmin) {
+        navigate("/admin");
+      } else if (isStaff) {
+        navigate("/staff");
+      } else {
+        navigate("/customer");
+      }
     } catch (err) {
-      console.error("Login error:", err.response);
+      console.error("Login error:", err);
       const detail =
         err.response?.data?.detail ||
         err.response?.data?.non_field_errors?.[0] ||
+        err.response?.data?.error ||
+        err.message ||
         "Invalid username or password. Please try again.";
       setError(detail);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -56,13 +91,13 @@ function Login() {
 
         <div className="mb-4">
           <label htmlFor="username" className="block mb-1 text-sm font-medium">
-            Username
+            Username or Email
           </label>
           <input
             type="text"
             id="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             className="w-full px-4 py-2 rounded bg-[#0f172a] border border-[#7b2cbf] text-white focus:outline-none focus:ring-2 focus:ring-[#38bdf8]"
             required
           />
@@ -93,9 +128,10 @@ function Login() {
 
         <button
           type="submit"
-          className="w-full bg-[#38bdf8] hover:bg-[#7b2cbf] text-[#0f172a] font-bold py-2 px-4 rounded transition"
+          disabled={loading}
+          className="w-full bg-[#38bdf8] hover:bg-[#7b2cbf] disabled:bg-gray-500 text-[#0f172a] font-bold py-2 px-4 rounded transition"
         >
-          Login
+          {loading ? "Logging in..." : "Login"}
         </button>
       </form>
     </div>

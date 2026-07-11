@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 
-const BACKEND_URL = "https://e-com-fgbd.onrender.com/api/store";
-
+// const BACKEND_URL = "https://e-com-fgbd.onrender.com/api/store";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000/api/store";
 function Shop() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);

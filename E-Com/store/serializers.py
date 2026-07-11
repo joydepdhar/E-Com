@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
 from .models import (
     Category, Product, Cart, CartItem,
     Order, OrderItem, ShippingAddress,
@@ -123,6 +124,34 @@ class OrderSerializer(serializers.ModelSerializer):
             'status', 'order_items', 'shipping_address', 'payment'
         ]
         read_only_fields = ['id', 'user', 'created_at', 'is_paid', 'total_price']
+
+
+class AdminOrderSerializer(OrderSerializer):
+    user = serializers.SerializerMethodField()
+
+    class Meta(OrderSerializer.Meta):
+        fields = OrderSerializer.Meta.fields
+        read_only_fields = ['id', 'user', 'created_at', 'total_price']
+
+    def get_user(self, obj):
+        return {
+            'id': obj.user.id,
+            'username': obj.user.username,
+            'email': obj.user.email,
+        }
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    orders_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = get_user_model()
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'phone', 'address', 'role', 'is_staff', 'is_active',
+            'date_joined', 'orders_count'
+        ]
+        read_only_fields = ['id', 'date_joined', 'orders_count']
 
 
 # -------------------- REVIEW --------------------

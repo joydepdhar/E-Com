@@ -1,8 +1,11 @@
 from django.db import transaction
+from django.db.models import Count, Sum
+from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
+from user_app.permissions import IsAdminRole, IsCustomerRole, IsStaffOrAdminRole
 from .models import (
     Category, Product, Cart, CartItem,
     Order, OrderItem, ShippingAddress,
@@ -11,7 +14,8 @@ from .models import (
 from .serializers import (
     CategorySerializer, ProductSerializer, CartSerializer,
     CartItemSerializer, OrderSerializer, ShippingAddressSerializer,
-    PaymentSerializer, ReviewSerializer
+    PaymentSerializer, ReviewSerializer, AdminOrderSerializer,
+    AdminUserSerializer
 )
 
 # -------------------- CATEGORY --------------------
@@ -33,8 +37,8 @@ def product_list_create(request):
         return Response(serializer.data)
 
     if request.method == 'POST':
-        if not request.user.is_staff:
-            return Response({'error': 'Only admin can add products'}, status=status.HTTP_403_FORBIDDEN)
+        if not getattr(request.user, 'is_staff_role', False):
+            return Response({'error': 'Only admin or staff can add products'}, status=status.HTTP_403_FORBIDDEN)
         serializer = ProductSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
@@ -55,8 +59,8 @@ def product_detail(request, pk):
         return Response(serializer.data)
 
     elif request.method == 'PUT':
-        if not request.user.is_staff:
-            return Response({'error': 'Only admin can update products'}, status=status.HTTP_403_FORBIDDEN)
+        if not getattr(request.user, 'is_staff_role', False):
+            return Response({'error': 'Only admin or staff can update products'}, status=status.HTTP_403_FORBIDDEN)
         serializer = ProductSerializer(product, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
@@ -64,8 +68,8 @@ def product_detail(request, pk):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
-        if not request.user.is_staff:
-            return Response({'error': 'Only admin can delete products'}, status=status.HTTP_403_FORBIDDEN)
+        if not getattr(request.user, 'is_staff_role', False):
+            return Response({'error': 'Only admin or staff can delete products'}, status=status.HTTP_403_FORBIDDEN)
         product.delete()
         return Response({'message': 'Product deleted'}, status=status.HTTP_204_NO_CONTENT)
 
@@ -204,3 +208,311 @@ def review_list_create(request, product_id):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+# -------------------- ADMIN DASHBOARD --------------------
+@api_view(['GET'])
+@permission_classes([IsAdminRole])
+def admin_dashboard(request):
+    paid_revenue = Order.objects.filter(is_paid=True).aggregate(
+        total=Sum('total_price')
+    )['total'] or 0
+
+    order_status_counts = {
+        item['status']: item['count']
+        for item in Order.objects.values('status').annotate(count=Count('id'))
+    }
+
+    recent_orders = Order.objects.select_related('user').prefetch_related(
+        'order_items__product'
+    ).order_by('-created_at')[:5]
+    low_stock_products = Product.objects.select_related('category').filter(
+        stock__lte=5,
+        is_active=True
+    ).order_by('stock', 'name')[:10]
+
+    return Response({
+        'totals': {
+            'revenue': paid_revenue,
+            'orders': Order.objects.count(),
+            'paid_orders': Order.objects.filter(is_paid=True).count(),
+            'pending_orders': Order.objects.filter(status__iexact='Pending').count(),
+            'products': Product.objects.count(),
+            'active_products': Product.objects.filter(is_active=True).count(),
+            'customers': get_user_model().objects.filter(role='customer').count(),
+            'reviews': Review.objects.count(),
+        },
+        'orders_by_status': order_status_counts,
+        'recent_orders': AdminOrderSerializer(
+            recent_orders,
+            many=True,
+            context={'request': request}
+        ).data,
+        'low_stock_products': ProductSerializer(
+            low_stock_products,
+            many=True,
+            context={'request': request}
+        ).data,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsStaffOrAdminRole])
+def staff_dashboard(request):
+    recent_orders = Order.objects.select_related('user').prefetch_related(
+        'order_items__product'
+    ).order_by('-created_at')[:10]
+    low_stock_products = Product.objects.select_related('category').filter(
+        stock__lte=5,
+        is_active=True
+    ).order_by('stock', 'name')[:10]
+
+    return Response({
+        'totals': {
+            'orders': Order.objects.count(),
+            'pending_orders': Order.objects.filter(status__iexact='Pending').count(),
+            'paid_orders': Order.objects.filter(is_paid=True).count(),
+            'products': Product.objects.count(),
+            'active_products': Product.objects.filter(is_active=True).count(),
+            'low_stock_products': Product.objects.filter(stock__lte=5, is_active=True).count(),
+        },
+        'recent_orders': AdminOrderSerializer(
+            recent_orders,
+            many=True,
+            context={'request': request}
+        ).data,
+        'low_stock_products': ProductSerializer(
+            low_stock_products,
+            many=True,
+            context={'request': request}
+        ).data,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsCustomerRole])
+def customer_dashboard(request):
+    orders = Order.objects.filter(user=request.user)
+    recent_orders = orders.prefetch_related(
+        'order_items__product'
+    ).order_by('-created_at')[:5]
+    cart, _ = Cart.objects.get_or_create(user=request.user)
+
+    return Response({
+        'totals': {
+            'orders': orders.count(),
+            'pending_orders': orders.filter(status__iexact='Pending').count(),
+            'paid_orders': orders.filter(is_paid=True).count(),
+            'cart_items': cart.items.count(),
+            'reviews': Review.objects.filter(user=request.user).count(),
+        },
+        'cart': CartSerializer(cart, context={'request': request}).data,
+        'recent_orders': OrderSerializer(
+            recent_orders,
+            many=True,
+            context={'request': request}
+        ).data,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminRole])
+def admin_order_list(request):
+    orders = Order.objects.select_related('user').prefetch_related(
+        'order_items__product'
+    ).order_by('-created_at')
+    serializer = AdminOrderSerializer(orders, many=True, context={'request': request})
+    return Response(serializer.data)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAdminRole])
+def admin_update_order(request, order_id):
+    try:
+        order = Order.objects.get(id=order_id)
+    except Order.DoesNotExist:
+        return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = AdminOrderSerializer(
+        order,
+        data=request.data,
+        partial=True,
+        context={'request': request}
+    )
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminRole])
+def admin_customer_list(request):
+    users = get_user_model().objects.filter(role='customer').annotate(
+        orders_count=Count('order')
+    ).order_by('-date_joined')
+    serializer = AdminUserSerializer(users, many=True)
+    return Response(serializer.data)
+
+
+# -------------------- ADMIN USERS MANAGEMENT --------------------
+@api_view(['GET', 'POST'])
+@permission_classes([IsAdminRole])
+def admin_users(request):
+    """List all users or create a new user"""
+    if request.method == 'GET':
+        users = get_user_model().objects.annotate(orders_count=Count('order')).order_by('-date_joined')
+        serializer = AdminUserSerializer(users, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        # Create new user
+        UserModel = get_user_model()
+        data = request.data
+        
+        if UserModel.objects.filter(username=data.get('username')).exists():
+            return Response({'error': 'Username already exists'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if UserModel.objects.filter(email=data.get('email')).exists():
+            return Response({'error': 'Email already exists'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        role = data.get('role', UserModel.Role.CUSTOMER)
+        if role not in UserModel.Role.values:
+            return Response({'error': 'Invalid role'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = UserModel.objects.create_user(
+            username=data.get('username'),
+            email=data.get('email'),
+            password=data.get('password', 'temppassword123'),
+            first_name=data.get('first_name', ''),
+            last_name=data.get('last_name', ''),
+            role=role,
+            is_staff=role == UserModel.Role.ADMIN,
+            is_active=data.get('is_active', True)
+        )
+        
+        serializer = AdminUserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAdminRole])
+def admin_user_detail(request, user_id):
+    """Retrieve, update or delete a specific user"""
+    try:
+        user = get_user_model().objects.get(id=user_id)
+    except get_user_model().DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    if request.method == 'GET':
+        serializer = AdminUserSerializer(user)
+        return Response(serializer.data)
+    
+    elif request.method == 'PUT':
+        data = request.data
+        user.username = data.get('username', user.username)
+        user.email = data.get('email', user.email)
+        user.first_name = data.get('first_name', user.first_name)
+        user.last_name = data.get('last_name', user.last_name)
+        role = data.get('role', user.role)
+        if role not in user.Role.values:
+            return Response({'error': 'Invalid role'}, status=status.HTTP_400_BAD_REQUEST)
+        user.role = role
+        user.is_staff = role == user.Role.ADMIN
+        user.is_active = data.get('is_active', user.is_active)
+        user.phone = data.get('phone', user.phone)
+        user.address = data.get('address', user.address)
+        user.save()
+        
+        serializer = AdminUserSerializer(user)
+        return Response(serializer.data)
+    
+    elif request.method == 'DELETE':
+        if user.id == request.user.id:
+            return Response({'error': 'Cannot delete your own account'}, status=status.HTTP_400_BAD_REQUEST)
+        user.delete()
+        return Response({'message': 'User deleted'}, status=status.HTTP_204_NO_CONTENT)
+
+
+# -------------------- ADMIN PRODUCTS MANAGEMENT --------------------
+@api_view(['GET', 'POST'])
+@permission_classes([IsStaffOrAdminRole])
+def admin_products(request):
+    """List all products or create a new product"""
+    if request.method == 'GET':
+        products = Product.objects.all()
+        serializer = ProductSerializer(products, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        serializer = ProductSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsStaffOrAdminRole])
+def admin_product_detail(request, product_id):
+    """Retrieve, update or delete a specific product"""
+    try:
+        product = Product.objects.get(id=product_id)
+    except Product.DoesNotExist:
+        return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    if request.method == 'GET':
+        serializer = ProductSerializer(product, context={'request': request})
+        return Response(serializer.data)
+    
+    elif request.method == 'PUT':
+        serializer = ProductSerializer(
+            product,
+            data=request.data,
+            partial=True,
+            context={'request': request}
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        product.delete()
+        return Response({'message': 'Product deleted'}, status=status.HTTP_204_NO_CONTENT)
+
+
+# -------------------- ADMIN SETTINGS --------------------
+from django.core.cache import cache
+
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAdminRole])
+def admin_settings(request):
+    """Manage admin settings"""
+    if request.method == 'GET':
+        # Get settings from cache or database
+        settings_data = cache.get('admin_settings', {})
+        
+        if not settings_data:
+            settings_data = {
+                'store_name': 'E-Commerce Store',
+                'store_description': 'Your awesome e-commerce platform',
+                'store_email': 'support@ecommerce.com',
+                'store_phone': '+1-800-123-4567',
+                'currency': 'USD',
+                'tax_rate': '10',
+                'shipping_cost': '10',
+                'min_order_amount': '0',
+                'maintenance_mode': False,
+                'allow_registration': True,
+                'require_email_verification': False,
+            }
+        
+        return Response(settings_data)
+    
+    elif request.method == 'PUT':
+        # Update settings
+        settings_data = request.data
+        cache.set('admin_settings', settings_data, timeout=None)
+        return Response({
+            'message': 'Settings updated successfully',
+            'data': settings_data
+        })

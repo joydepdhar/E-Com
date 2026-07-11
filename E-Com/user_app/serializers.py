@@ -1,13 +1,15 @@
 from rest_framework import serializers
 from .models import CustomUser
 from django.contrib.auth.password_validation import validate_password
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 class UserSerializer(serializers.ModelSerializer):
     profile_picture = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'address', 'phone', 'profile_picture']
+        fields = ['id', 'username', 'email', 'address', 'phone', 'profile_picture', 'role']
+        read_only_fields = ['id', 'role']
 
     def get_profile_picture(self, obj):
         request = self.context.get('request')
@@ -28,7 +30,8 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ['username', 'email', 'password', 'password2', 'address', 'phone', 'profile_picture']
+        fields = ['username', 'email', 'password', 'password2', 'address', 'phone', 'profile_picture', 'role']
+        read_only_fields = ['role']
 
     def validate(self, data):
         if data['password'] != data['password2']:
@@ -37,5 +40,25 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop('password2')
+        validated_data['role'] = CustomUser.Role.CUSTOMER
         user = CustomUser.objects.create_user(**validated_data)
         return user
+
+
+class RoleTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['role'] = user.role
+        token['username'] = user.username
+        token['email'] = user.email
+        return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        data['user'] = UserSerializer(
+            self.user,
+            context=self.context,
+        ).data
+        data['role'] = self.user.role
+        return data

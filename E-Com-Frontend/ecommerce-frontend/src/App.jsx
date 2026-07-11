@@ -11,6 +11,12 @@ import Shipping from "./pages/Shipping";
 import Order from "./pages/Order";
 import Payment from "./pages/Payment";
 import Review from "./pages/Review";
+import AdminDashboard from "./pages/AdminDashboard";
+import StaffDashboard from "./pages/StaffDashboard";
+import CustomerDashboard from "./pages/CustomerDashboard";
+import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
+import ProtectedStaffRoute from "./components/ProtectedStaffRoute";
+import ProtectedCustomerRoute from "./components/ProtectedCustomerRoute";
 
 function App() {
   return (
@@ -24,9 +30,33 @@ function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/order" element={<Order />} />
-         <Route path="/shipping" element={<Shipping/>} />
-         <Route path="/payment" element={<Payment />} />
-         <Route path="/review" element={<Review />} />
+        <Route path="/shipping" element={<Shipping />} />
+        <Route path="/payment" element={<Payment />} />
+        <Route path="/review" element={<Review />} />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedAdminRoute>
+              <AdminDashboard />
+            </ProtectedAdminRoute>
+          }
+        />
+        <Route
+          path="/staff"
+          element={
+            <ProtectedStaffRoute>
+              <StaffDashboard />
+            </ProtectedStaffRoute>
+          }
+        />
+        <Route
+          path="/customer"
+          element={
+            <ProtectedCustomerRoute>
+              <CustomerDashboard />
+            </ProtectedCustomerRoute>
+          }
+        />
       </Routes>
       <Footer />
     </BrowserRouter>

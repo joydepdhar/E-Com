@@ -10,6 +10,7 @@ import {
   UserPlus,
   LogOut,
   User,
+  LayoutDashboard,
 } from "lucide-react";
 import { AuthContext } from "../pages/AuthContext"; // Adjust path as needed
 
@@ -26,8 +27,29 @@ function Navbar() {
     { label: "Cart", path: "/cart", icon: <ShoppingCart className="w-4 h-4 mr-1" /> },
   ];
 
+  const dashboardLink = user
+    ? user?.is_superuser || user?.role?.toString()?.toLowerCase() === "admin"
+      ? {
+          label: "Admin Dashboard",
+          path: "/admin",
+          icon: <LayoutDashboard className="w-4 h-4 mr-1" />,
+        }
+      : user?.is_staff
+      ? {
+          label: "Staff Dashboard",
+          path: "/staff",
+          icon: <LayoutDashboard className="w-4 h-4 mr-1" />,
+        }
+      : {
+          label: "Dashboard",
+          path: "/customer",
+          icon: <LayoutDashboard className="w-4 h-4 mr-1" />,
+        }
+    : null;
+
   const authNav = user
     ? [
+        dashboardLink,
         {
           label: `Hello, ${user.username}`,
           path: "/profile",
