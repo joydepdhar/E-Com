@@ -144,6 +144,11 @@ STORAGES = {
     },
 }
 
+# Do not turn API responses into 500 errors when a newly installed package has
+# static assets that are not present in an older collected-static manifest.
+# WhiteNoise will fall back to the unhashed asset URL until collectstatic runs.
+WHITENOISE_MANIFEST_STRICT = False
+
 # Django REST Framework with JWT authentication
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
