@@ -3,6 +3,8 @@ import axios from "axios";
 
 export const AuthContext = createContext();
 
+const REQUEST_TIMEOUT_MS = 10000;
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -51,21 +53,16 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const fetchUserProfile = async (accessToken, retry = true) => {
+  const fetchUserProfile = async (accessToken) => {
     try {
       const response = await axios.get(`${BACKEND_URL}/api/user_app/profile/`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
+        timeout: REQUEST_TIMEOUT_MS,
       });
       return response.data;
     } catch (error) {
-      if (retry && error.response?.status === 401) {
-        const refreshedAccess = await refreshAccessToken();
-        if (refreshedAccess) {
-          return fetchUserProfile(refreshedAccess, false);
-        }
-      }
       console.error("Failed to fetch profile:", error);
       return null;
     }
@@ -73,6 +70,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     axios.defaults.baseURL = BACKEND_URL;
+    axios.defaults.timeout = REQUEST_TIMEOUT_MS;
 
     const requestInterceptor = axios.interceptors.request.use((config) => {
       const token = localStorage.getItem("access_token");
@@ -86,9 +84,13 @@ export function AuthProvider({ children }) {
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
+        const isRefreshRequest = originalRequest?.url?.includes(
+          "/api/user_app/token/refresh/"
+        );
         if (
           error.response?.status === 401 &&
           originalRequest &&
+          !isRefreshRequest &&
           !originalRequest._retry &&
           localStorage.getItem("refresh_token")
         ) {
@@ -103,17 +105,21 @@ export function AuthProvider({ children }) {
       }
     );
 
-    const accessToken = localStorage.getItem("access_token");
-    if (accessToken) {
-      fetchUserProfile(accessToken).then((profile) => {
+    const initializeAuth = async () => {
+      try {
+        const accessToken = localStorage.getItem("access_token");
+        if (!accessToken) return;
+
+        const profile = await fetchUserProfile(accessToken);
         if (profile) {
           setUser(profile);
         }
+      } finally {
         setLoading(false);
-      });
-    } else {
-      setLoading(false);
-    }
+      }
+    };
+
+    initializeAuth();
 
     return () => {
       axios.interceptors.request.eject(requestInterceptor);

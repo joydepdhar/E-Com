@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Trash2, Edit2, Plus, Search } from "lucide-react";
 import axios from "axios";
 
 function ProductManagement() {
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -18,13 +20,9 @@ function ProductManagement() {
     image: "",
   });
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -35,17 +33,13 @@ function ProductManagement() {
         return;
       }
 
-      console.log("Fetching products from:", `${BACKEND_URL}/api/store/admin/products/`);
       const response = await axios.get(`${BACKEND_URL}/api/store/admin/products/`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      console.log("Products response:", response.data);
       const payload = response.data;
       setProducts(payload?.results ?? payload ?? []);
-      console.log("Products set to:", payload?.results ?? payload ?? []);
     } catch (error) {
       console.error("Error fetching products:", error);
-      console.error("Error response:", error.response?.data);
       setError(
         error.response?.data?.detail ||
           error.response?.data?.message ||
@@ -54,6 +48,37 @@ function ProductManagement() {
     } finally {
       setLoading(false);
     }
+  }, [BACKEND_URL]);
+
+  const fetchCategories = useCallback(async () => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/store/categories/`);
+      const payload = response.data;
+      setCategories(payload?.results ?? payload ?? []);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  }, [BACKEND_URL]);
+
+  useEffect(() => {
+    fetchProducts();
+    fetchCategories();
+  }, [fetchProducts, fetchCategories]);
+
+  const getCategoryValue = (category) => {
+    if (!category) return "";
+    if (typeof category === "object") {
+      return category.id ?? category.name ?? "";
+    }
+    return category;
+  };
+
+  const getCategoryLabel = (category) => {
+    if (!category) return "Uncategorized";
+    if (typeof category === "object") {
+      return category.name || category.title || "Uncategorized";
+    }
+    return category;
   };
 
   const filteredProducts = products.filter(
@@ -69,7 +94,7 @@ function ProductManagement() {
       description: product.description,
       price: product.price,
       stock: product.stock,
-      category: product.category,
+      category: getCategoryValue(product.category),
       image: product.image,
     });
     setShowModal(true);
@@ -96,14 +121,21 @@ function ProductManagement() {
 
   const handleSaveProduct = async () => {
     try {
+      setSubmitting(true);
+      setError(null);
       const accessToken = localStorage.getItem("access_token");
+      if (!accessToken) {
+        setError("No access token found. Please log in again.");
+        return;
+      }
+
       const payload = {
         name: formData.name,
         description: formData.description,
         price: parseFloat(formData.price) || 0,
         stock: parseInt(formData.stock, 10) || 0,
-        category: formData.category,
-        image: formData.image,
+        category: formData.category || undefined,
+        image: formData.image || "",
       };
 
       if (selectedProduct) {
@@ -120,13 +152,24 @@ function ProductManagement() {
       await fetchProducts();
       setShowModal(false);
       setSelectedProduct(null);
+      setFormData({
+        name: "",
+        description: "",
+        price: "",
+        stock: "",
+        category: "",
+        image: "",
+      });
     } catch (error) {
       console.error("Error saving product:", error);
       setError(
         error.response?.data?.detail ||
           error.response?.data?.message ||
+          error.response?.data?.error ||
           "Unable to save product."
       );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -220,7 +263,7 @@ function ProductManagement() {
                         <span>{product.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">{product.category}</td>
+                    <td className="px-6 py-4">{getCategoryLabel(product.category)}</td>
                     <td className="px-6 py-4 font-semibold">${product.price}</td>
                     <td className="px-6 py-4">{product.stock}</td>
                     <td className="px-6 py-4">
@@ -319,14 +362,20 @@ function ProductManagement() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Category</label>
-                <input
-                  type="text"
+                <select
                   value={formData.category}
                   onChange={(e) =>
                     setFormData({ ...formData, category: e.target.value })
                   }
                   className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none"
-                />
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Image URL</label>
@@ -349,9 +398,10 @@ function ProductManagement() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded transition"
+                  disabled={submitting}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded transition disabled:opacity-50"
                 >
-                  Save
+                  {submitting ? "Saving..." : "Save"}
                 </button>
               </div>
             </form>

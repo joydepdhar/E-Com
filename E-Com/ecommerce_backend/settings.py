@@ -1,4 +1,5 @@
 from pathlib import Path
+import cloudinary
 import environ
 import os
 
@@ -42,7 +43,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'cloudinary',
-    'cloudinary_storage',
 
     # Your apps
     'user_app',
@@ -81,10 +81,22 @@ TEMPLATES = [
 WSGI_APPLICATION = 'ecommerce_backend.wsgi.application'
 
 # Database configuration (default to sqlite3)
+# DATABASES = {
+#     'default': env.db(default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
+# }
+# Database
 DATABASES = {
-    'default': env.db(default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
+    "default": env.db()
 }
 
+# Keep connections alive
+DATABASES["default"]["CONN_MAX_AGE"] = 600
+
+# Enable SSL only for cloud PostgreSQL
+if "neon.tech" in DATABASES["default"]["HOST"]:
+    DATABASES["default"]["OPTIONS"] = {
+        "sslmode": "require",
+    }
 # Custom user model
 AUTH_USER_MODEL = 'user_app.CustomUser'
 
@@ -106,15 +118,30 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
-# Media files — upload to Cloudinary
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+# Credentials used by Product.image and CustomUser.profile_picture.
+CLOUDINARY_CLOUD_NAME = env('CLOUDINARY_CLOUD_NAME')
+CLOUDINARY_API_KEY = env('CLOUDINARY_API_KEY')
+CLOUDINARY_API_SECRET = env('CLOUDINARY_API_SECRET')
 
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': env('CLOUDINARY_CLOUD_NAME'),
-    'API_KEY': env('CLOUDINARY_API_KEY'),
-    'API_SECRET': env('CLOUDINARY_API_SECRET'),
+cloudinary.config(
+    cloud_name=CLOUDINARY_CLOUD_NAME,
+    api_key=CLOUDINARY_API_KEY,
+    api_secret=CLOUDINARY_API_SECRET,
+    secure=True,
+)
+
+# CloudinaryField performs its own upload. Other files use Django's local
+# backend, while collected static/admin files are served by WhiteNoise.
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
 }
 
 # Django REST Framework with JWT authentication

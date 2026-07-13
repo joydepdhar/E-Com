@@ -3,6 +3,8 @@ import { TrendingUp, DollarSign, Users, Package, ArrowUp, ArrowDown, ShoppingCar
 import axios from "axios";
 
 function AdminOverview({ stats }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [dashboardStats, setDashboardStats] = useState({
     totalUsers: 0,
     totalProducts: 0,
@@ -15,7 +17,7 @@ function AdminOverview({ stats }) {
 
   const [recentOrders, setRecentOrders] = useState([]);
 
-  const BACKEND_URL = "http://127.0.0.1:8000";
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
   useEffect(() => {
     fetchDashboardData();
@@ -24,15 +26,36 @@ function AdminOverview({ stats }) {
   const fetchDashboardData = async () => {
     try {
       const accessToken = localStorage.getItem("access_token");
-      if (!accessToken) return;
+      if (!accessToken) {
+        setError("Your session has expired. Please log in again.");
+        return;
+      }
 
       const response = await axios.get(`${BACKEND_URL}/api/store/admin/dashboard/`, {
         headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 10000,
       });
 
-      setDashboardStats(response.data);
+      const totals = response.data?.totals || {};
+      setDashboardStats({
+        totalUsers: totals.customers || 0,
+        totalProducts: totals.products || 0,
+        totalOrders: totals.orders || 0,
+        totalRevenue: Number(totals.revenue) || 0,
+        monthlyRevenue: 0,
+        activeUsers: totals.customers || 0,
+        pendingOrders: totals.pending_orders || 0,
+      });
+      setRecentOrders(response.data?.recent_orders || []);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
+      setError(
+        error.code === "ECONNABORTED"
+          ? "Dashboard request timed out. Check that the backend is running."
+          : error.response?.data?.detail || "Unable to load dashboard data."
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -63,6 +86,16 @@ function AdminOverview({ stats }) {
 
   return (
     <div className="space-y-6">
+      {loading && (
+        <div className="rounded-lg border border-blue-700 bg-blue-950 p-4 text-blue-100">
+          Loading dashboard data...
+        </div>
+      )}
+      {error && (
+        <div className="rounded-lg border border-red-700 bg-red-950 p-4 text-red-100">
+          {error}
+        </div>
+      )}
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
