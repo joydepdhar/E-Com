@@ -2,8 +2,9 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 
-// const BACKEND_URL = "https://e-com-fgbd.onrender.com/api/store";
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000/api/store";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
+const API_BASE = `${BACKEND_URL}/api/store`;
+
 function Shop() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -13,9 +14,10 @@ function Shop() {
 
   useEffect(() => {
     axios
-      .get(`${BACKEND_URL}/products/`)
+      .get(`${API_BASE}/products/`)
       .then((res) => {
-        setProducts(res.data);
+        const productList = Array.isArray(res.data) ? res.data : res.data?.results || [];
+        setProducts(productList);
         setLoading(false);
       })
       .catch((err) => {
@@ -24,10 +26,13 @@ function Shop() {
       });
 
     axios
-      .get(`${BACKEND_URL}/categories/`)
-      .then((res) => setCategories(res.data))
+      .get(`${API_BASE}/categories/`)
+      .then((res) => {
+        const categoryList = Array.isArray(res.data) ? res.data : res.data?.results || [];
+        setCategories(categoryList);
+      })
       .catch((err) => console.error("Error fetching categories:", err));
-  }, []);
+  }, [API_BASE]);
 
   const getImageUrl = (imagePath) => {
     return imagePath || "/fallback.png";
@@ -49,7 +54,7 @@ function Shop() {
 
     try {
       await axios.post(
-        `${BACKEND_URL}/cart/`,
+        `${API_BASE}/cart/`,
         {
           product_id: productId,
           quantity: 1,

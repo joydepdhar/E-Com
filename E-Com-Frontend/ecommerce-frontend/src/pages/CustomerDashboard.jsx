@@ -3,7 +3,7 @@ import axios from "axios";
 import { AuthContext } from "./AuthContext";
 import { ShoppingCart, CreditCard, Package, Clock } from "lucide-react";
 
-const BACKEND_URL = "http://127.0.0.1:8000";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
 function CustomerDashboard() {
   const { user } = useContext(AuthContext);

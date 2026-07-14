@@ -1,14 +1,15 @@
-import React, { createContext, useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
+import { AuthContext as SharedAuthContext } from "../context/AuthContext";
 
-export const AuthContext = createContext();
+export const AuthContext = SharedAuthContext;
 
 const REQUEST_TIMEOUT_MS = 10000;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
   const setAccessToken = (token) => {
     if (token) {
@@ -26,14 +27,14 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setAccessToken(null);
     setRefreshToken(null);
     localStorage.removeItem("username");
     setUser(null);
-  };
+  }, []);
 
-  const refreshAccessToken = async () => {
+  const refreshAccessToken = useCallback(async () => {
     const refreshToken = localStorage.getItem("refresh_token");
     if (!refreshToken) {
       return null;
@@ -51,9 +52,9 @@ export function AuthProvider({ children }) {
       logout();
       return null;
     }
-  };
+  }, [logout]);
 
-  const fetchUserProfile = async (accessToken) => {
+  const fetchUserProfile = useCallback(async (accessToken) => {
     try {
       const response = await axios.get(`${BACKEND_URL}/api/user_app/profile/`, {
         headers: {
@@ -66,7 +67,7 @@ export function AuthProvider({ children }) {
       console.error("Failed to fetch profile:", error);
       return null;
     }
-  };
+  }, []);
 
   useEffect(() => {
     axios.defaults.baseURL = BACKEND_URL;
@@ -125,7 +126,7 @@ export function AuthProvider({ children }) {
       axios.interceptors.request.eject(requestInterceptor);
       axios.interceptors.response.eject(responseInterceptor);
     };
-  }, []);
+  }, [fetchUserProfile, refreshAccessToken]);
 
   const login = async (usernameOrEmail, accessToken, refreshToken) => {
     setAccessToken(accessToken);

@@ -10,7 +10,7 @@ function UserManagement() {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ username: "", email: "", role: "user" });
 
-  const BACKEND_URL = "http://127.0.0.1:8000";
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
   useEffect(() => {
     fetchUsers();

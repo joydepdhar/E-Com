@@ -10,7 +10,7 @@ function OrderManagement() {
   const [showModal, setShowModal] = useState(false);
   const [orderStatus, setOrderStatus] = useState("");
 
-  const BACKEND_URL = "http://127.0.0.1:8000";
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
   const STATUS_OPTIONS = ["pending", "processing", "shipped", "delivered", "cancelled"];
 
   useEffect(() => {
