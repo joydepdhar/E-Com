@@ -7,21 +7,20 @@ from django.core.exceptions import ImproperlyConfigured
 # Define BASE_DIR before using it
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Initialize environment variables
-# Ensure .env values override shell values in local development.
+# Load local environment variables from `.env` during development.
 os.environ.setdefault('DJANGO_ENV', 'development')
 environ.Env.read_env(BASE_DIR / '.env', override=True)
 
-if os.environ['DJANGO_ENV'].lower() == 'development':
-    os.environ['DATABASE_URL'] = 'postgres://ecommerce_user:12312312@localhost:5432/ecommerce_db'
-
 env = environ.Env(
-    DEBUG=(bool, False)
+    DEBUG=(bool, False),
+    DJANGO_ENV=(str, 'development'),
+    ALLOWED_HOSTS=(list, []),
+    CSRF_TRUSTED_ORIGINS=(list, []),
 )
 
-# Environment separation: development is HTTP-friendly by default, while
-# production enables HTTPS-only security controls.
-DJANGO_ENV = env('DJANGO_ENV', default='development').lower()
+# Environment separation: development is HTTP-friendly by default; production
+# enforces HTTPS and explicit host values.
+DJANGO_ENV = env('DJANGO_ENV').lower()
 if DJANGO_ENV not in {'development', 'production'}:
     raise ImproperlyConfigured("DJANGO_ENV must be either 'development' or 'production'.")
 
@@ -36,8 +35,13 @@ DEBUG = env.bool('DEBUG', default=not IS_PRODUCTION)
 if IS_PRODUCTION and DEBUG:
     raise ImproperlyConfigured('DEBUG must be False when DJANGO_ENV is production.')
 
-# Hosts and trusted CSRF origins remain deployment-specific environment values.
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
+ALLOWED_HOSTS = env.list(
+    'ALLOWED_HOSTS',
+    default=['localhost', '127.0.0.1'] if not IS_PRODUCTION else [],
+)
+if IS_PRODUCTION and not ALLOWED_HOSTS:
+    raise ImproperlyConfigured('ALLOWED_HOSTS must be set when DJANGO_ENV is production.')
+
 CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[])
 
 # Redirect production HTTP requests to HTTPS. Disabled locally to avoid
@@ -118,23 +122,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'ecommerce_backend.wsgi.application'
 
-# Database configuration (default to sqlite3)
-# DATABASES = {
-#     'default': env.db(default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
-# }
-# Database
+# Database configuration with a safe local fallback and production-ready defaults.
 DATABASES = {
-    "default": env.db()
+    'default': env.db(default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
 }
 
-# Keep connections alive
-DATABASES["default"]["CONN_MAX_AGE"] = 600
+# Keep connections alive in production and allow an override for testing.
+DATABASES['default']['CONN_MAX_AGE'] = env.int('CONN_MAX_AGE', default=600)
+DATABASES['default']['ATOMIC_REQUESTS'] = env.bool('DB_ATOMIC_REQUESTS', default=False)
 
-# Enable SSL only for cloud PostgreSQL
-if "neon.tech" in DATABASES["default"]["HOST"]:
-    DATABASES["default"]["OPTIONS"] = {
-        "sslmode": "require",
+# Enable SSL only for cloud PostgreSQL connections, e.g. Neon.
+if 'neon.tech' in DATABASES['default'].get('HOST', ''):
+    DATABASES['default']['OPTIONS'] = {
+        'sslmode': 'require',
     }
+
+if IS_PRODUCTION and DATABASES['default']['ENGINE'] == 'django.db.backends.sqlite3':
+    raise ImproperlyConfigured('DATABASE_URL must be configured in production.')
+
 # Custom user model
 AUTH_USER_MODEL = 'user_app.CustomUser'
 
