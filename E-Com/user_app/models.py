@@ -18,6 +18,15 @@ class CustomUser(AbstractUser):
         default=Role.CUSTOMER,
     )
 
+    class Meta(AbstractUser.Meta):
+        indexes = [
+            models.Index(
+                fields=['is_active', 'is_staff'],
+                name='user_active_staff_idx',
+            ),
+            models.Index(fields=['role', 'date_joined'], name='user_role_joined_idx'),
+        ]
+
     @property
     def is_admin_role(self):
         return self.role == self.Role.ADMIN or self.is_superuser

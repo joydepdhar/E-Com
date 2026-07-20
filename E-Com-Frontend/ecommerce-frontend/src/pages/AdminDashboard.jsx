@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useContext } from "react";
 import { AuthContext } from "./AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
@@ -22,12 +22,6 @@ function AdminDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalProducts: 0,
-    totalOrders: 0,
-    totalRevenue: 0,
-  });
 
   // Note: Route protection is handled by ProtectedAdminRoute component
   // User is guaranteed to be admin here
@@ -121,7 +115,7 @@ function AdminDashboard() {
 
         {/* Content Area */}
         <div className="p-6">
-          {activeTab === "overview" && <AdminOverview stats={stats} />}
+          {activeTab === "overview" && <AdminOverview />}
           {activeTab === "users" && <UserManagement />}
           {activeTab === "products" && <ProductManagement />}
           {activeTab === "orders" && <OrderManagement />}

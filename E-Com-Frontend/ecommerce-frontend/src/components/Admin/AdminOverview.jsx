@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { TrendingUp, DollarSign, Users, Package, ArrowUp, ArrowDown, ShoppingCart } from "lucide-react";
 import axios from "axios";
 
-function AdminOverview({ stats }) {
+function AdminOverview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dashboardStats, setDashboardStats] = useState({
@@ -15,15 +15,9 @@ function AdminOverview({ stats }) {
     pendingOrders: 0,
   });
 
-  const [recentOrders, setRecentOrders] = useState([]);
-
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       const accessToken = localStorage.getItem("access_token");
       if (!accessToken) {
@@ -46,7 +40,6 @@ function AdminOverview({ stats }) {
         activeUsers: totals.customers || 0,
         pendingOrders: totals.pending_orders || 0,
       });
-      setRecentOrders(response.data?.recent_orders || []);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       setError(
@@ -57,32 +50,39 @@ function AdminOverview({ stats }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [BACKEND_URL]);
 
-  const StatCard = ({ icon: Icon, label, value, change, positive }) => (
-    <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-gray-400 text-sm mb-2">{label}</p>
-          <p className="text-3xl font-bold">{value}</p>
-          <div className="flex items-center mt-2 text-sm">
-            {positive ? (
-              <ArrowUp size={16} className="text-green-500 mr-1" />
-            ) : (
-              <ArrowDown size={16} className="text-red-500 mr-1" />
-            )}
-            <span className={positive ? "text-green-500" : "text-red-500"}>
-              {change}%
-            </span>
-            <span className="text-gray-400 ml-1">vs last month</span>
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  const StatCard = ({ icon, label, value, change, positive }) => {
+    const Icon = icon;
+    return (
+      <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-gray-400 text-sm mb-2">{label}</p>
+            <p className="text-3xl font-bold">{value}</p>
+            <div className="flex items-center mt-2 text-sm">
+              {positive ? (
+                <ArrowUp size={16} className="text-green-500 mr-1" />
+              ) : (
+                <ArrowDown size={16} className="text-red-500 mr-1" />
+              )}
+              <span className={positive ? "text-green-500" : "text-red-500"}>
+                {change}%
+              </span>
+              <span className="text-gray-400 ml-1">vs last month</span>
+            </div>
+          </div>
+          <div className="bg-blue-600 p-4 rounded-lg">
+            <Icon size={32} className="text-white" />
           </div>
         </div>
-        <div className="bg-blue-600 p-4 rounded-lg">
-          <Icon size={32} className="text-white" />
-        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-6">

@@ -23,20 +23,20 @@ function AdminSettings() {
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
   useEffect(() => {
-    fetchSettings();
-  }, []);
+    const fetchSettings = async () => {
+      try {
+        const accessToken = localStorage.getItem("access_token");
+        const response = await axios.get(`${BACKEND_URL}/api/store/admin/settings/`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        setSettings(response.data);
+      } catch (error) {
+        console.error("Error fetching settings:", error);
+      }
+    };
 
-  const fetchSettings = async () => {
-    try {
-      const accessToken = localStorage.getItem("access_token");
-      const response = await axios.get(`${BACKEND_URL}/api/store/admin/settings/`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      setSettings(response.data);
-    } catch (error) {
-      console.error("Error fetching settings:", error);
-    }
-  };
+    fetchSettings();
+  }, [BACKEND_URL]);
 
   const handleSaveSettings = async () => {
     setLoading(true);

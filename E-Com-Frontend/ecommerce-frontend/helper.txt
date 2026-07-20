@@ -1,0 +1,1277 @@
+# Frontend Integration Guide
+
+## 1. Project Overview
+
+This backend is a Django + Django REST Framework application with versioned API endpoints and JWT authentication.
+
+- **Authentication method**
+  - JWT authentication using `rest_framework_simplejwt`
+  - Access and refresh tokens are issued via login
+  - Protected endpoints require `Authorization: Bearer <access_token>`
+- **API version**
+  - Primary versioned API base: `/api/v1/`
+  - Legacy compatibility routes also exist at `/api/user_app/` and `/api/store/`
+- **Base URL**
+  - Example local backend base: `http://localhost:8000`
+  - API root: `http://localhost:8000/`
+  - Versioned API base: `http://localhost:8000/api/v1/`
+- **Technologies**
+  - Backend: Django 5, Django REST Framework 3.16, Django Filters, Simple JWT, Cloudinary
+  - No React frontend source exists in this repository
+  - CORS is configured for frontend origin `http://localhost:3000` in development
+- **Response format**
+  - Standard REST responses return plain JSON objects or paginated wrappers
+  - Paginated collection responses follow DRF paginator structure
+- **Error format**
+  - All API errors are returned as:
+    {
+      "success": false,
+      "message": "Validation error.",
+      "errors": { ... },
+      "status_code": 400
+    }
+
+---
+
+## 2. Authentication
+
+### Login endpoint
+- `POST /api/user_app/login/`
+- Accepts:
+  - `username`
+  - `password`
+- Returns:
+  - `access`
+  - `refresh`
+  - `user` object
+  - `role`
+
+### Register endpoint
+- `POST /api/user_app/register/`
+- Accepts:
+  - `username`
+  - `email`
+  - `password`
+  - `password2`
+  - optional: `address`, `phone`, `profile_picture`
+- Creates a customer account
+- Returns created user data
+
+### Refresh Token endpoint
+- `POST /api/user_app/token/refresh/`
+- Accepts:
+  - `refresh`
+- Returns:
+  - new `access` token
+
+### Logout
+- No backend logout endpoint exists
+- Frontend must perform logout by discarding tokens locally
+
+### Required headers
+- `Authorization: Bearer <access_token>` for protected requests
+- `Content-Type: application/json` for JSON request bodies
+- `Accept: application/json`
+- Optional: `X-Request-ID` for request tracing
+
+### JWT flow
+1. `POST /api/user_app/login/` with credentials
+2. Receive `access` + `refresh`
+3. Use `access` in `Authorization` header for protected requests
+4. When access expires, refresh it with `POST /api/user_app/token/refresh/`
+5. On logout, delete tokens in frontend state/storage
+
+### Token lifetime
+- The backend does not explicitly configure token lifetimes
+- It uses `rest_framework_simplejwt` defaults
+- Typical defaults:
+  - access token: ~5 minutes
+  - refresh token: ~1 day
+- Frontend should treat access tokens as short-lived and refresh regularly
+
+### Protected routes
+- All cart, order, shipping, payment, review, and customer dashboard endpoints
+- Admin/staff dashboards and admin APIs
+- Profile endpoints
+
+### Admin routes
+- `GET /api/store/admin/dashboard/`
+- `GET /api/store/staff/dashboard/`
+- `GET /api/store/customer/dashboard/`
+- `GET /api/store/admin/orders/`
+- `GET /api/store/admin/orders/<order_id>/`
+- `PATCH /api/store/admin/orders/<order_id>/`
+- `GET /api/store/admin/users/`
+- `POST /api/store/admin/users/`
+- `GET|PUT|DELETE /api/store/admin/users/<user_id>/`
+- `GET /api/store/admin/customers/`
+- `GET|POST /api/store/admin/products/`
+- `GET|PUT|DELETE /api/store/admin/products/<product_id>/`
+- `GET|PUT /api/store/admin/settings/`
+- Admin routes require `admin` role, except product management routes which allow staff or admin
+
+### Customer routes
+- Cart: `/api/store/cart/`, `/api/store/cart/remove/<item_id>/`
+- Orders: `/api/store/orders/`, `/api/store/orders/create/`
+- Shipping: `/api/store/orders/<order_id>/shipping/`
+- Payment: `/api/store/orders/<order_id>/payment/`
+  - Frontend may submit `payment_method` as `Cash on Delivery`, `COD`, or `Sandbox`
+  - `payment_id` is optional for COD and sandbox/test payment flows
+- Reviews: `/api/store/products/<product_id>/reviews/`
+- Customer dashboard: `/api/store/customer/dashboard/`
+
+---
+
+## 3. API Endpoints
+
+### API root
+- `GET /`
+- Authentication: none
+- Purpose: API entrypoint
+- Response:
+  {
+    "version": "v1",
+    "api": "/api/v1/",
+    "user_app": "/api/user_app/",
+    "store": "/api/store/",
+    "legacy_user_app": "/api/user_app/",
+    "legacy_store": "/api/store/",
+    "django_admin": "/admin/"
+  }
+
+---
+
+### Auth endpoints
+
+#### Login
+- `POST /api/user_app/login/`
+- Auth: no
+- Permission: public
+- Request:
+  {
+    "username": "user",
+    "password": "password"
+  }
+- Response:
+  {
+    "refresh": "...",
+    "access": "...",
+    "user": { ... },
+    "role": "customer"
+  }
+- Errors:
+  - `401` invalid credentials
+  - `400` malformed request
+
+#### Register
+- `POST /api/user_app/register/`
+- Auth: no
+- Permission: public
+- Request:
+  {
+    "username": "new-user",
+    "email": "new@example.com",
+    "password": "StrongPass123!",
+    "password2": "StrongPass123!"
+  }
+- Response:
+  {
+    "id": 1,
+    "username": "new-user",
+    "email": "new@example.com",
+    "address": null,
+    "phone": null,
+    "profile_picture": null,
+    "role": "customer"
+  }
+- Errors:
+  - `400` passwords mismatch
+  - `400` invalid password rules
+  - `400` email/username already used
+
+#### Refresh token
+- `POST /api/user_app/token/refresh/`
+- Auth: no
+- Permission: public
+- Request:
+  {
+    "refresh": "<refresh_token>"
+  }
+- Response:
+  {
+    "access": "..."
+  }
+- Errors:
+  - `401` invalid/expired refresh token
+  - `400` malformed request
+
+#### Profile
+- `GET /api/user_app/profile/`
+- `PUT /api/user_app/profile/`
+- Auth: yes
+- Permission: authenticated
+- Request `PUT`:
+  {
+    "email": "new@example.com",
+    "address": "123 Main St",
+    "phone": "+1234567890"
+  }
+- Response:
+  {
+    "id": 1,
+    "username": "user",
+    "email": "new@example.com",
+    "address": "123 Main St",
+    "phone": "+1234567890",
+    "profile_picture": null,
+    "role": "customer"
+  }
+- Errors:
+  - `401` unauthorized
+  - `400` invalid update data
+
+---
+
+### Public store endpoints
+
+#### Category list
+- `GET /api/store/categories/`
+- Auth: no
+- Permission: public
+- Query parameters:
+  - `page`
+  - `page_size`
+- Response: paginated categories
+- Errors:
+  - `400` invalid pagination
+
+#### Product list / public create
+- `GET /api/store/products/`
+- Auth: no for GET
+- Permission: public for GET
+- Query parameters:
+  - `category` (category id)
+  - `is_active` (`true`/`false`)
+  - `min_price`
+  - `max_price`
+  - `search`
+  - `ordering` (`name`, `price`, `created_at`)
+  - `page`
+  - `page_size`
+- GET Response: paginated active products with:
+  - `id`, `name`, `description`, `price`, `image`, `stock`, `is_active`, `created_at`, `category`, `category_id`
+- Errors:
+  - `400` invalid filters/pagination
+
+- `POST /api/store/products/`
+- Auth: optional but only staff/admin may mutate
+- Permission: admin/staff only
+- Request:
+  {
+    "category_id": 1,
+    "name": "New Product",
+    "description": "Description",
+    "price": "19.99",
+    "stock": 10,
+    "is_active": true
+  }
+- Errors:
+  - `403` non-staff/non-admin
+  - `400` validation failed
+
+#### Product detail
+- `GET /api/store/products/<id>/`
+- Auth: no
+- Permission: public
+- Response: product object
+- Errors:
+  - `404` not found
+
+- `PUT /api/store/products/<id>/`
+- Auth: yes
+- Permission: staff/admin only
+- Request: partial update fields
+- Errors:
+  - `403` permission denied
+  - `404` not found
+  - `400` validation failed
+
+- `DELETE /api/store/products/<id>/`
+- Auth: yes
+- Permission: staff/admin only
+- Response:
+  {
+    "message": "Product deleted"
+  }
+- Errors:
+  - `403` permission denied
+  - `404` not found
+
+---
+
+### Cart endpoints
+
+#### Get cart
+- `GET /api/store/cart/`
+- Auth: yes
+- Permission: authenticated
+- Response:
+  {
+    "id": 1,
+    "user": 1,
+    "created_at": "2026-07-20T12:00:00Z",
+    "items": [
+      {
+        "id": 10,
+        "product": { ... },
+        "product_id": 2,
+        "quantity": 3
+      }
+    ],
+    "total_price": "59.97"
+  }
+- Errors:
+  - `401` unauthorized
+
+#### Add item / update quantity
+- `POST /api/store/cart/`
+- Auth: yes
+- Permission: authenticated
+- Request:
+  {
+    "product_id": 2,
+    "quantity": 3
+  }
+- Response:
+  {
+    "message": "Item added to cart"
+  }
+- Notes:
+  - If the item exists, quantity is replaced
+  - `quantity` defaults to `1`
+- Errors:
+  - `404` product not found
+  - `400` invalid quantity
+  - `401` unauthorized
+
+#### Remove item
+- `DELETE /api/store/cart/remove/<item_id>/`
+- Auth: yes
+- Permission: authenticated
+- Response:
+  {
+    "message": "Item removed"
+  }
+- Errors:
+  - `404` item not found
+  - `401` unauthorized
+
+#### Clear cart
+- No dedicated clear cart endpoint
+- To clear cart, remove each item individually or recreate behavior in backend
+- Frontend can use repeated `DELETE` calls per cart item
+
+---
+
+### Checkout endpoints
+
+#### Create order
+- `POST /api/store/orders/create/`
+- Auth: yes
+- Permission: authenticated
+- Purpose: convert cart contents into order and deduct product inventory
+- Request body: none
+- Response:
+  {
+    "message": "Order placed",
+    "order_id": 123
+  }
+- Validation:
+  - Cart must exist and contain items
+  - Cart item quantity must be > 0
+  - All products in the cart must exist
+  - Products must be active
+  - Sufficient stock must exist
+- Possible errors:
+  - `400` cart empty
+  - `400` inactive product
+  - `400` product no longer exists
+  - `400` insufficient stock
+  - `401` unauthorized
+
+---
+
+### Orders endpoints
+
+#### List orders
+- `GET /api/store/orders/`
+- Auth: yes
+- Permission: authenticated
+- Query parameters:
+  - `status`
+  - `is_paid`
+  - `customer`
+  - `search`
+  - `ordering` (`created_at`, `total_price`; alias `total`)
+  - `page`
+  - `page_size`
+- Response: paginated list of orders with order items, shipping address, and payment
+- Errors:
+  - `401` unauthorized
+  - `400` invalid filters
+
+#### Order detail
+- There is no dedicated customer order detail endpoint
+- Use the order list response and select the specific item from `results`
+- Each order includes:
+  - `order_items`
+  - `shipping_address`
+  - `payment`
+
+#### Cancel order
+- No customer cancel endpoint
+- Only admin can update order status via:
+  - `PATCH /api/store/admin/orders/<order_id>/`
+
+#### Order status
+- Orders include:
+  - `id`
+  - `user`
+  - `created_at`
+  - `is_paid`
+  - `total_price`
+  - `status`
+  - `order_items`
+  - `shipping_address`
+  - `payment`
+
+#### Payment status
+- Payment object nested in order contains:
+  - `id`
+  - `payment_method`
+  - `payment_id`
+  - `amount`
+  - `status`
+  - `is_successful`
+  - `paid_at`
+
+#### Order timeline
+- No dedicated timeline endpoint
+- Order list includes order data and nested order items
+
+---
+
+### Payment endpoints
+
+#### Create payment
+- `POST /api/store/orders/<order_id>/payment/`
+- Auth: yes
+- Permission: authenticated
+- Request examples:
+  - Default COD (preferred):
+    {
+      "payment_method": "Cash on Delivery"
+    }
+  - Explicit COD:
+    {
+      "payment_method": "COD"
+    }
+  - Gateway payment:
+    {
+      "payment_method": "TestGateway",
+      "payment_id": "provider-reference-1"
+    }
+- Response:
+  - On first create:
+    {
+      "message": "Payment pending verification",
+      "payment_id": 1,
+      "status": "Pending"
+    }
+  - On repeated request:
+    {
+      "message": "Payment pending verification",
+      "payment_id": 1,
+      "status": "Pending"
+    }
+- Notes:
+  - Amount is derived from `order.total_price`
+  - Existing payment reuses the pending payment
+  - If `payment_method` is omitted, Cash on Delivery is assumed
+  - If `payment_method` is COD / Cash on Delivery, `payment_id` is generated automatically
+- Errors:
+  - `404` order not found
+  - `400` missing `payment_id` for non-COD payment methods
+  - `401` unauthorized
+
+#### Payment verification
+- No backend verification endpoint exists
+- Payment remains `Pending` until backend is extended
+- Frontend should treat this as initial payment submission only
+
+#### Payment status
+- Status values:
+  - `Pending`
+  - `Successful`
+  - `Failed`
+- Frontend should read nested `payment.status` from the order object
+
+#### Retry payment
+- Reposting the same order payment endpoint returns existing pending payment
+- There is no dedicated retry or webhook endpoint
+- For multiple attempts, frontend can retry `POST /api/store/orders/<order_id>/payment/` again
+
+---
+
+### Reviews
+
+#### Product reviews
+- `GET /api/store/products/<product_id>/reviews/`
+  - Auth: yes
+  - Permission: authenticated
+  - Returns paginated reviews
+- `POST /api/store/products/<product_id>/reviews/`
+  - Auth: yes
+  - Permission: authenticated
+  - Request:
+    {
+      "product_id": 2,
+      "rating": 5,
+      "comment": "Great product!"
+    }
+- Errors:
+  - `404` product not found
+  - `400` invalid review data
+  - `401` unauthorized
+
+---
+
+### Admin APIs
+
+#### Admin dashboard
+- `GET /api/store/admin/dashboard/`
+- Auth: yes
+- Permission: admin only
+- Response includes:
+  - revenue totals
+  - order counts
+  - paid/pending counts
+  - product counts
+  - customer count
+  - review count
+  - `orders_by_status`
+  - `recent_orders`
+  - `low_stock_products`
+
+#### Staff dashboard
+- `GET /api/store/staff/dashboard/`
+- Auth: yes
+- Permission: staff or admin
+- Response includes:
+  - order totals
+  - low stock counts
+  - recent orders
+  - low stock products
+
+#### Customer dashboard
+- `GET /api/store/customer/dashboard/`
+- Auth: yes
+- Permission: customer only
+- Response includes:
+  - order totals
+  - cart summary
+  - recent orders
+  - review count
+
+#### Admin order list
+- `GET /api/store/admin/orders/`
+- Auth: yes
+- Permission: admin only
+- Query parameters:
+  - `status`
+  - `is_paid`
+  - `customer`
+  - `search`
+  - `ordering` (`created_at`, `total_price`; alias `total`)
+  - `page`
+  - `page_size`
+
+#### Admin update order
+- `PATCH /api/store/admin/orders/<order_id>/`
+- Auth: yes
+- Permission: admin only
+- Request:
+  {
+    "status": "Cancelled"
+  }
+- Errors:
+  - `404` order not found
+  - `403` permission denied
+  - `400` invalid status
+
+#### Admin customer list
+- `GET /api/store/admin/customers/`
+- Auth: yes
+- Permission: admin only
+- Query parameters:
+  - `is_active`
+  - `search`
+  - `ordering` (`username`, `date_joined`)
+  - `page`
+  - `page_size`
+
+#### Admin users management
+- `GET /api/store/admin/users/`
+- `POST /api/store/admin/users/`
+- `GET /api/store/admin/users/<user_id>/`
+- `PUT /api/store/admin/users/<user_id>/`
+- `DELETE /api/store/admin/users/<user_id>/`
+- Errors:
+  - `400` invalid user data
+  - `403` permission denied
+  - `404` user not found
+
+#### Admin products management
+- `GET /api/store/admin/products/`
+- `POST /api/store/admin/products/`
+- `GET /api/store/admin/products/<product_id>/`
+- `PUT /api/store/admin/products/<product_id>/`
+- `DELETE /api/store/admin/products/<product_id>/`
+- Permission: staff or admin
+
+#### Admin settings
+- `GET /api/store/admin/settings/`
+- `PUT /api/store/admin/settings/`
+- Request body: arbitrary settings object; backend caches values
+- Response:
+  {
+    "message": "Settings updated successfully",
+    "data": { ... }
+  }
+
+---
+
+## 4. Products
+
+### List Products
+- `GET /api/store/products/`
+- Returns only active products in public list
+- Supports pagination, search, filtering, ordering
+
+### Product Detail
+- `GET /api/store/products/<id>/`
+- Returns one product record with category and image URL
+
+### Categories
+- `GET /api/store/categories/`
+- Returns paginated categories
+- Each item:
+  - `id`, `name`, `slug`
+
+### Search
+- Supported on products by:
+  - `name`
+  - `description`
+- Use query parameter `search=<term>`
+
+### Pagination
+- Supported by `page` and `page_size`
+- Default page size: 20
+- Max page size: 100
+
+### Filtering
+- Supported on product list:
+  - `category`
+  - `is_active`
+  - `min_price`
+  - `max_price`
+
+### Sorting
+- Supported on product list:
+  - `name`
+  - `price`
+  - `created_at`
+- Use `ordering=name`, `ordering=-price`, etc.
+
+### Images
+- Product `image` field returns:
+  - full Cloudinary URL for Cloudinary-hosted images
+  - absolute URL if running locally
+- Always use `image` field from response; do not reconstruct image paths manually
+
+### Example request
+GET /api/store/products/?category=1&search=keyboard&min_price=20&max_price=100&ordering=-price&page=1&page_size=20
+
+### Example response
+{
+  "count": 1,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 5,
+      "name": "Wireless Keyboard",
+      "description": "Compact wireless keyboard",
+      "price": "49.99",
+      "image": "https://res.cloudinary.com/...",
+      "stock": 10,
+      "is_active": true,
+      "created_at": "2026-07-20T12:00:00Z",
+      "category": {
+        "id": 1,
+        "name": "Keyboards",
+        "slug": "keyboards"
+      },
+      "category_id": 1
+    }
+  ]
+}
+
+---
+
+## 5. Cart
+
+### Get Cart
+- `GET /api/store/cart/`
+- Auth required
+- Returns cart items and total price
+
+### Add Item
+- `POST /api/store/cart/`
+- Adds new item or updates existing item quantity
+- Body:
+  {
+    "product_id": 3,
+    "quantity": 2
+  }
+
+### Update Quantity
+- Same endpoint as add item
+- Reposting `product_id` with a different `quantity` updates it
+
+### Remove Item
+- `DELETE /api/store/cart/remove/<item_id>/`
+- Removes item by cart item ID
+
+### Clear Cart
+- There is no clear-cart endpoint
+- To clear cart, delete items individually
+
+### Example request
+POST /api/store/cart/
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "product_id": 3,
+  "quantity": 2
+}
+
+### Example response
+{
+  "message": "Item added to cart"
+}
+
+---
+
+## 6. Checkout
+
+### Full checkout flow
+1. Add cart items with `POST /api/store/cart/`
+2. Create order from cart:
+   - `POST /api/store/orders/create/`
+3. Add shipping address:
+   - `POST /api/store/orders/<order_id>/shipping/`
+4. Make payment:
+   - `POST /api/store/orders/<order_id>/payment/`
+
+### Required request body
+- `POST /api/store/orders/create/`
+  - no body required
+- `POST /api/store/orders/<order_id>/shipping/`
+  {
+    "address": "123 Main St",
+    "city": "City",
+    "postal_code": "10001",
+    "country": "USA"
+  }
+- `POST /api/store/orders/<order_id>/payment/`
+  {
+    "payment_method": "TestGateway",
+    "payment_id": "txn-123"
+  }
+
+### Validation
+- Order creation validates:
+  - cart exists
+  - cart contains items
+  - each cart product exists
+  - quantities are positive
+  - all products are active
+  - stock is sufficient
+- Shipping address validation:
+  - `address`, `city`, `postal_code`, `country` required
+- Payment validation:
+  - `payment_method` is optional and defaults to Cash on Delivery
+  - `payment_id` is required for non-COD methods
+
+### Possible errors
+- `400` cart empty
+- `400` invalid quantity
+- `400` product no longer exists
+- `400` product inactive
+- `400` insufficient stock
+- `401` unauthorized
+- `404` order not found
+
+---
+
+## 7. Orders
+
+### List Orders
+- `GET /api/store/orders/`
+- Auth required
+- Permission: authenticated
+- Returns paginated orders for authenticated user
+
+### Order Detail
+- No dedicated customer order detail endpoint
+- Use order list results to select the specific item from `results`
+- Each order includes order items, shipping address, and payment
+
+### Cancel Order
+- No customer cancel endpoint
+- Admin can update `status` via `PATCH /api/store/admin/orders/<order_id>/`
+
+### Order Status
+- Orders contain:
+  - `status`
+  - `is_paid`
+  - `total_price`
+  - `created_at`
+
+### Payment Status
+- Payment nested in order contains:
+  - `status`
+  - `is_successful`
+  - `paid_at`
+
+### Order Timeline
+- Not available as a separate flow
+- Order data only provided through list and admin order response fields
+
+---
+
+## 8. Payment
+
+### Create Payment
+- `POST /api/store/orders/<order_id>/payment/`
+- Auth: yes
+- Permission: authenticated
+- Request:
+  {
+    "payment_method": "Stripe",
+    "payment_id": "stripe_txn_123"
+  }
+- Response:
+  {
+    "message": "Payment pending verification",
+    "payment_id": 1,
+    "status": "Pending"
+  }
+- Notes:
+  - Amount is derived from `order.total_price`
+  - Existing payment reuses the pending payment
+- Errors:
+  - `404` order not found
+  - `400` missing `payment_method` or `payment_id`
+  - `401` unauthorized
+
+### Payment Verification
+- No separate verification endpoint exists
+- Payment remains in `Pending` state
+- Frontend must treat this as initial payment submission only
+
+### Payment Status
+- Status values:
+  - `Pending`
+  - `Successful`
+  - `Failed`
+- Read nested `payment.status` from the order object
+
+### Retry Payment
+- Repost to same endpoint
+- Backend returns existing pending payment instead of creating duplicates
+
+---
+
+## 9. User Profile
+
+### Profile
+- `GET /api/user_app/profile/`
+- Returns current authenticated user profile
+
+### Update Profile
+- `PUT /api/user_app/profile/`
+- Accepts partial updates
+- Cannot change `role`
+
+### Addresses
+- No global address book endpoint
+- Shipping address exists only per order via `POST /api/store/orders/<order_id>/shipping/`
+
+### Change Password
+- No password change/reset endpoint exists
+- Frontend cannot change password through backend API
+
+---
+
+## 10. Admin APIs
+
+### Users
+- `GET /api/store/admin/users/`
+- `POST /api/store/admin/users/`
+- `GET /api/store/admin/users/<user_id>/`
+- `PUT /api/store/admin/users/<user_id>/`
+- `DELETE /api/store/admin/users/<user_id>/`
+
+### Products
+- `GET /api/store/admin/products/`
+- `POST /api/store/admin/products/`
+- `GET /api/store/admin/products/<product_id>/`
+- `PUT /api/store/admin/products/<product_id>/`
+- `DELETE /api/store/admin/products/<product_id>/`
+
+### Orders
+- `GET /api/store/admin/orders/`
+- `PATCH /api/store/admin/orders/<order_id>/`
+
+### Dashboard
+- `GET /api/store/admin/dashboard/`
+- `GET /api/store/staff/dashboard/`
+- `GET /api/store/customer/dashboard/`
+
+### Settings
+- `GET /api/store/admin/settings/`
+- `PUT /api/store/admin/settings/`
+
+---
+
+## 11. Pagination
+
+### Parameters
+- `page`
+- `page_size`
+  - default: `20`
+  - maximum: `100`
+
+### Response structure
+{
+  "count": 123,
+  "next": "http://.../?page=2",
+  "previous": null,
+  "results": [ ... ]
+}
+
+---
+
+## 12. Search
+
+### Supported search fields
+
+#### Product search
+- `name`
+- `description`
+
+#### Order search
+- `id`
+- `user__username`
+
+#### User search
+- `username`
+- `email`
+- `first_name`
+- `last_name`
+
+#### Admin product search
+- `name`
+- `description`
+
+---
+
+## 13. Filtering
+
+### Product filters
+- `category` (category id)
+- `is_active` (`true` or `false`)
+- `min_price`
+- `max_price`
+
+### Order filters
+- `status`
+- `is_paid`
+- `customer` (user id)
+
+### User filters
+- `is_active`
+- `is_staff`
+
+---
+
+## 14. Sorting
+
+### Product ordering
+- `name`
+- `price`
+- `created_at`
+
+### Order ordering
+- `created_at`
+- `total_price`
+- alias: `total`
+
+### User ordering
+- `username`
+- `date_joined`
+
+---
+
+## 15. API Response Format
+
+### Success response
+- Most endpoints return plain JSON object(s)
+- Example:
+  {
+    "id": 5,
+    "name": "Wireless Keyboard",
+    "price": "49.99"
+  }
+
+### Error response
+- Standard error wrapper:
+  {
+    "success": false,
+    "message": "Validation error.",
+    "errors": { ... },
+    "status_code": 400
+  }
+
+---
+
+## 16. Validation Rules
+
+### Password
+- Must pass Django password validators
+- Must match `password2` on registration
+
+### Email
+- Must be valid email format
+- Must be unique
+
+### Quantity
+- Must be > 0
+- Adding or updating cart items with zero or negative quantity triggers error / DB integrity failure
+
+### Stock
+- Checkout validates enough stock before order creation
+- If stock is insufficient, checkout is rejected and cart remains intact
+
+### Payment
+- Requires `payment_method`
+- Requires `payment_id`
+- Amount is not accepted from the client
+
+### Order status
+- Admin can update `status`
+- No strict backend enum for order status
+- Common values:
+  - `Pending`
+  - `Shipped`
+  - `Cancelled`
+
+---
+
+## 17. Error Codes
+
+### 400
+- Use for validation and malformed data
+- Frontend should display user-friendly messages from `errors`
+- Example:
+  - invalid cart payload
+  - insufficient stock
+
+### 401
+- Access token missing, invalid, or expired
+- Frontend should redirect to login or refresh token
+- `token/refresh` may be needed
+
+### 403
+- User lacks permission
+- Frontend should show permission error or hide admin-only UI
+
+### 404
+- Resource not found
+- Frontend should show a not-found page or toast
+
+### 409
+- Not explicitly used in backend
+- Treat as business conflict if encountered
+
+### 422
+- Not explicitly used in backend
+- No backend endpoint returns 422 by design
+
+### 429
+- Not currently configured in backend
+- Not expected, but implement retry/backoff if it occurs
+
+### 500
+- Backend failure
+- Frontend should show generic error page and log issue
+
+---
+
+## 18. Status Values
+
+### Order Status
+- Backend stores `status` as free-form text
+- Common values observed:
+  - `Pending`
+  - `Shipped`
+  - `Cancelled`
+
+### Payment Status
+- `Pending`
+- `Successful`
+- `Failed`
+
+### User Roles
+- `admin`
+- `staff`
+- `customer`
+
+### Product Status
+- `is_active`: boolean
+- Use `true` / `false`
+
+---
+
+## 19. Frontend State Management
+
+### Authentication State
+- Store:
+  - `accessToken`
+  - `refreshToken`
+  - `user`
+  - `role`
+- Refresh access token before expiry
+
+### Cart State
+- Store cart items and `total_price`
+- Keep cart synced with backend `GET /api/store/cart/`
+- Update locally when adding/removing items
+
+### Order State
+- Store user orders and selected order details
+- Use order list to populate order pages
+
+### User State
+- Store user profile data
+- Update profile via `PUT /api/user_app/profile/`
+
+### Admin State
+- Store dashboard aggregates
+- Store admin product, user, order lists
+- Use paginated data and refresh on changes
+
+---
+
+## 20. Frontend Pages Required
+
+- Login
+- Register
+- Products
+- Product Detail
+- Cart
+- Checkout
+- Orders
+- Order Detail
+- Profile
+- Customer Dashboard
+- Admin Dashboard
+- Admin Users
+- Admin Products
+- Admin Orders
+- Settings
+
+---
+
+## 21. Components Required
+
+- `Navbar`
+- `ProductCard`
+- `ProductList`
+- `ProductFilters`
+- `PaginationControls`
+- `SearchBar`
+- `CartItem`
+- `CartSummary`
+- `CheckoutForm`
+- `OrderCard`
+- `OrderDetails`
+- `AddressForm`
+- `PaymentForm`
+- `UserProfileForm`
+- `AdminDashboardWidget`
+- `AdminTable`
+- `RoleBadge`
+- `LoadingSpinner`
+- `ErrorBanner`
+- `ToastNotification`
+- `ProtectedRoute`
+
+---
+
+## 22. API Integration Checklist
+
+- ✅ Login
+- ✅ Register
+- ✅ Refresh token
+- ✅ Profile fetch/update
+- ✅ Product listing
+- ✅ Product details
+- ✅ Category list
+- ✅ Search
+- ✅ Pagination
+- ✅ Product filters
+- ✅ Cart fetch
+- ✅ Cart add/update
+- ✅ Cart remove
+- ✅ Checkout / create order
+- ✅ Shipping address
+- ✅ Create payment
+- ✅ Order list
+- ✅ Reviews
+- ✅ Admin dashboard
+- ✅ Staff dashboard
+- ✅ Customer dashboard
+- ✅ Admin products
+- ✅ Admin users
+- ✅ Admin orders
+- ✅ Admin settings
+
+---
+
+## 23. Remaining Backend TODOs
+
+The frontend can be built, but the backend lacks several endpoints needed for a fully complete UX:
+
+- `GET /api/store/orders/<order_id>/` customer order detail endpoint
+- Customer order cancellation endpoint
+- Payment verification / confirmation endpoint
+- Password change/reset endpoints
+- Global shipping address management endpoints
+- Dedicated cart clear endpoint
+- Review update/delete endpoints
+
+These should be implemented later if the frontend must support standard ecommerce flows fully.

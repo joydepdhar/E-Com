@@ -134,7 +134,7 @@ function ProductManagement() {
         description: formData.description,
         price: parseFloat(formData.price) || 0,
         stock: parseInt(formData.stock, 10) || 0,
-        category: formData.category || undefined,
+        category_id: formData.category || undefined,
         image: formData.image || "",
       };
 

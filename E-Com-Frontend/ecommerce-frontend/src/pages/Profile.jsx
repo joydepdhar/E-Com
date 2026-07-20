@@ -3,7 +3,7 @@ import { AuthContext } from "../pages/AuthContext"; // Adjust path if needed
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-const BACKEND_URL = "https://e-com-fgbd.onrender.com";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
 function Profile() {
   const { user } = useContext(AuthContext);

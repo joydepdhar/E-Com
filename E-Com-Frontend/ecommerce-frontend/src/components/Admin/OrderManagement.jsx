@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Eye, CheckCircle, Clock, XCircle, Search } from "lucide-react";
 import axios from "axios";
 
@@ -11,36 +11,48 @@ function OrderManagement() {
   const [orderStatus, setOrderStatus] = useState("");
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
-  const STATUS_OPTIONS = ["pending", "processing", "shipped", "delivered", "cancelled"];
+  const STATUS_OPTIONS = ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"];
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
+  const getCustomerName = (order) =>
+    order.customer_name || order.customer || order.user?.username || order.user?.name || "Unknown";
+  const getCustomerEmail = (order) => order.customer_email || order.user?.email || "Unknown";
+  const getOrderIdentifier = (order) => order.order_number || `#${order.id || ""}`;
+  const getOrderItems = (order) => order.order_items || order.items || [];
+  const getOrderTotal = (order) => parseFloat(order.total_price || order.total_amount || 0) || 0;
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
       const accessToken = localStorage.getItem("access_token");
       const response = await axios.get(`${BACKEND_URL}/api/store/admin/orders/`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      setOrders(response.data);
+      const ordersData = Array.isArray(response.data)
+        ? response.data
+        : response.data?.results ?? [];
+      setOrders(ordersData);
     } catch (error) {
       console.error("Error fetching orders:", error);
     }
     setLoading(false);
-  };
+  }, [BACKEND_URL]);
 
-  const filteredOrders = orders.filter(
-    (order) =>
-      order.order_number?.includes(searchTerm) ||
-      order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customer_email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  const filteredOrders = orders.filter((order) => {
+    const searchValue = searchTerm.toLowerCase();
+    return (
+      getOrderIdentifier(order).toLowerCase().includes(searchValue) ||
+      getCustomerName(order).toLowerCase().includes(searchValue) ||
+      getCustomerEmail(order).toLowerCase().includes(searchValue)
+    );
+  });
 
   const handleViewOrder = (order) => {
     setSelectedOrder(order);
-    setOrderStatus(order.status);
+    setOrderStatus(order.status || "Pending");
     setShowModal(true);
   };
 
@@ -144,16 +156,16 @@ function OrderManagement() {
               ) : (
                 filteredOrders.map((order) => (
                   <tr key={order.id} className="border-b border-gray-700 hover:bg-gray-750">
-                    <td className="px-6 py-4 font-semibold">{order.order_number}</td>
+                    <td className="px-6 py-4 font-semibold">{getOrderIdentifier(order)}</td>
                     <td className="px-6 py-4">
                       <div>
-                        <p className="font-medium">{order.customer_name}</p>
-                        <p className="text-sm text-gray-400">{order.customer_email}</p>
+                        <p className="font-medium">{getCustomerName(order)}</p>
+                        <p className="text-sm text-gray-400">{getCustomerEmail(order)}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm">{order.items_count || 0} items</td>
+                    <td className="px-6 py-4 text-sm">{getOrderItems(order).length} items</td>
                     <td className="px-6 py-4 font-semibold">
-                      ${order.total_amount?.toFixed(2) || 0}
+                      ${getOrderTotal(order).toFixed(2)}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
@@ -216,12 +228,21 @@ function OrderManagement() {
               <div>
                 <h4 className="font-semibold mb-3">Items</h4>
                 <div className="space-y-2 bg-gray-700 p-4 rounded">
-                  {selectedOrder.items?.map((item, idx) => (
-                    <div key={idx} className="flex justify-between border-b border-gray-600 pb-2">
-                      <span>{item.product_name} x{item.quantity}</span>
-                      <span>${(item.price * item.quantity).toFixed(2)}</span>
-                    </div>
-                  )) || <p className="text-gray-400">No items</p>}
+                  {getOrderItems(selectedOrder).length > 0 ? (
+                    getOrderItems(selectedOrder).map((item, idx) => {
+                      const productName = item.product_name || item.product?.name || item.product?.title || "Product";
+                      const quantity = item.quantity || item.qty || 1;
+                      const price = parseFloat(item.price || item.product?.price || 0) || 0;
+                      return (
+                        <div key={idx} className="flex justify-between border-b border-gray-600 pb-2">
+                          <span>{productName} x{quantity}</span>
+                          <span>${(price * quantity).toFixed(2)}</span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-gray-400">No items</p>
+                  )}
                 </div>
               </div>
 
@@ -229,15 +250,15 @@ function OrderManagement() {
               <div className="bg-gray-700 p-4 rounded space-y-2">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
-                  <span>${(selectedOrder.total_amount * 0.9).toFixed(2)}</span>
+                  <span>${getOrderTotal(selectedOrder).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Tax</span>
-                  <span>${(selectedOrder.total_amount * 0.1).toFixed(2)}</span>
+                  <span>$0.00</span>
                 </div>
                 <div className="flex justify-between font-bold text-lg border-t border-gray-600 pt-2">
                   <span>Total</span>
-                  <span>${selectedOrder.total_amount?.toFixed(2)}</span>
+                  <span>${getOrderTotal(selectedOrder).toFixed(2)}</span>
                 </div>
               </div>
 

@@ -1,7 +1,12 @@
+import logging
+
 from rest_framework import serializers
 from .models import CustomUser
 from django.contrib.auth.password_validation import validate_password
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+
+auth_logger = logging.getLogger('authentication')
 
 class UserSerializer(serializers.ModelSerializer):
     profile_picture = serializers.SerializerMethodField()
@@ -55,10 +60,34 @@ class RoleTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
     def validate(self, attrs):
-        data = super().validate(attrs)
+        try:
+            data = super().validate(attrs)
+        except Exception:
+            request = self.context.get('request')
+            auth_logger.warning(
+                'user_login_failed ip=%s',
+                _get_client_ip(request),
+            )
+            raise
+
+        request = self.context.get('request')
+        auth_logger.info(
+            'user_login_success user_id=%s ip=%s',
+            self.user.id,
+            _get_client_ip(request),
+        )
         data['user'] = UserSerializer(
             self.user,
             context=self.context,
         ).data
         data['role'] = self.user.role
         return data
+
+
+def _get_client_ip(request):
+    if request is None:
+        return None
+    forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if forwarded_for:
+        return forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR')

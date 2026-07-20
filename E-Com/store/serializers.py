@@ -105,10 +105,24 @@ class ShippingAddressSerializer(serializers.ModelSerializer):
 
 # -------------------- PAYMENT --------------------
 class PaymentSerializer(serializers.ModelSerializer):
+    payment_method = serializers.CharField(required=False, default='Cash on Delivery')
+    payment_id = serializers.CharField(required=False, allow_blank=True)
+
     class Meta:
         model = Payment
-        fields = ['id', 'payment_method', 'payment_id', 'amount', 'is_successful', 'paid_at']
-        read_only_fields = ['id', 'is_successful', 'paid_at']
+        fields = ['id', 'payment_method', 'payment_id', 'amount', 'status', 'is_successful', 'paid_at']
+        read_only_fields = ['id', 'amount', 'status', 'is_successful', 'paid_at']
+
+    def validate(self, attrs):
+        payment_method = attrs.get('payment_method', '').strip() or 'Cash on Delivery'
+        attrs['payment_method'] = payment_method
+
+        if payment_method.lower() not in ['cash on delivery', 'cod', 'sandbox', 'test', 'testgateway'] and not attrs.get('payment_id'):
+            raise serializers.ValidationError({
+                'payment_id': 'Payment ID is required for non-COD and non-sandbox payment methods.'
+            })
+
+        return attrs
 
 
 # -------------------- ORDER --------------------

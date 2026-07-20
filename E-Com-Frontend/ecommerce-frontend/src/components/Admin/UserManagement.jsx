@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Trash2, Edit2, Plus, Search, ChevronDown } from "lucide-react";
 import axios from "axios";
 
@@ -12,23 +12,26 @@ function UserManagement() {
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
       const accessToken = localStorage.getItem("access_token");
       const response = await axios.get(`${BACKEND_URL}/api/store/admin/users/`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      setUsers(response.data);
+      const userData = Array.isArray(response.data)
+        ? response.data
+        : response.data?.results ?? [];
+      setUsers(userData);
     } catch (error) {
       console.error("Error fetching users:", error);
     }
     setLoading(false);
-  };
+  }, [BACKEND_URL]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const filteredUsers = users.filter(
     (user) =>

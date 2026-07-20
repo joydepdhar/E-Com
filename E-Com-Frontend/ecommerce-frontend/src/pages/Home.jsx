@@ -17,7 +17,10 @@ function Home() {
     axios
       .get(`${BACKEND_URL}/api/store/products/`)
       .then((res) => {
-        setProducts(res.data);
+        const productList = Array.isArray(res.data)
+          ? res.data
+          : res.data?.results ?? [];
+        setProducts(productList);
         setLoading(false);
       })
       .catch((err) => {
@@ -27,7 +30,12 @@ function Home() {
 
     axios
       .get(`${BACKEND_URL}/api/store/categories/`)
-      .then((res) => setCategories(res.data))
+      .then((res) => {
+        const categoryList = Array.isArray(res.data)
+          ? res.data
+          : res.data?.results ?? [];
+        setCategories(categoryList);
+      })
       .catch((err) => console.error("Error fetching categories:", err));
   }, []);
 

@@ -32,7 +32,7 @@ function Shop() {
         setCategories(categoryList);
       })
       .catch((err) => console.error("Error fetching categories:", err));
-  }, [API_BASE]);
+  }, []);
 
   const getImageUrl = (imagePath) => {
     return imagePath || "/fallback.png";

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
-const BACKEND_URL = "https://e-com-fgbd.onrender.com";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
 function Payment() {
   const navigate = useNavigate();
@@ -10,7 +10,8 @@ function Payment() {
   const orderId = localStorage.getItem("order_id");
   const totalPrice = localStorage.getItem("total_price");
 
-  const [paymentMethod, setPaymentMethod] = useState("Stripe"); // Default payment method
+  const [paymentMethod, setPaymentMethod] = useState("Cash on Delivery");
+  const [paymentId, setPaymentId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -26,22 +27,31 @@ function Payment() {
     setLoading(true);
     setError("");
 
+    const isCod = paymentMethod === "Cash on Delivery" || paymentMethod === "COD";
+    const payload = { payment_method: paymentMethod };
+
+    if (!isCod) {
+      if (!paymentId.trim()) {
+        setError("Payment reference is required for gateway payments.");
+        setLoading(false);
+        return;
+      }
+      payload.payment_id = paymentId.trim();
+    }
+
     try {
-      const response = await axios.post(
+      await axios.post(
         `${BACKEND_URL}/api/store/orders/${orderId}/payment/`,
-        {
-          payment_method: paymentMethod,
-          payment_id: `TXN_${Date.now()}`, // Dummy transaction id
-          amount: totalPrice,
-        },
+        payload,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
           },
         }
       );
 
-      alert("Payment successful! You can now review your products.");
+      alert("Payment submitted successfully! You can now review your products.");
       setLoading(false);
 
       // Redirect to review page after payment success
@@ -49,7 +59,9 @@ function Payment() {
     } catch (err) {
       console.error("Payment failed:", err);
       setError(
-        err.response?.data?.error ||
+        err.response?.data?.message ||
+          err.response?.data?.errors?.payment_id?.[0] ||
+          err.response?.data?.errors?.payment_method?.[0] ||
           "Payment failed. Please try again or contact support."
       );
       setLoading(false);
@@ -81,10 +93,27 @@ function Payment() {
             onChange={(e) => setPaymentMethod(e.target.value)}
             className="w-full mb-6 p-2 rounded bg-gray-700 text-white"
           >
-            <option value="Stripe">Stripe</option>
-            <option value="PayPal">PayPal</option>
-            <option value="CashOnDelivery">Cash on Delivery</option>
+            <option value="Cash on Delivery">Cash on Delivery</option>
+            <option value="COD">Cash on Delivery (Explicit)</option>
+            <option value="TestGateway">TestGateway</option>
           </select>
+
+          {!["Cash on Delivery", "COD"].includes(paymentMethod) && (
+            <div className="mb-6">
+              <label className="block mb-2" htmlFor="paymentId">
+                Payment Reference
+              </label>
+              <input
+                id="paymentId"
+                type="text"
+                value={paymentId}
+                onChange={(e) => setPaymentId(e.target.value)}
+                className="w-full p-2 rounded bg-gray-700 text-white"
+                placeholder="Enter payment reference"
+                required
+              />
+            </div>
+          )}
 
           <button
             type="submit"

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-const BACKEND_URL = "https://e-com-fgbd.onrender.com";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
 function Review() {
   const [orders, setOrders] = useState([]);
@@ -17,7 +17,12 @@ function Review() {
       .get(`${BACKEND_URL}/api/store/orders/`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
-      .then((res) => setOrders(res.data))
+      .then((res) => {
+        const data = Array.isArray(res.data)
+          ? res.data
+          : res.data?.results ?? [];
+        setOrders(data);
+      })
       .catch((err) => console.error("Failed to fetch orders", err));
   }, [accessToken]);
 
@@ -42,9 +47,12 @@ function Review() {
           headers: { Authorization: `Bearer ${accessToken}` },
         })
         .then((res) => {
+          const reviewsData = Array.isArray(res.data)
+            ? res.data
+            : res.data?.results ?? [];
           setExistingReviews((prev) => ({
             ...prev,
-            [product.id]: res.data,
+            [product.id]: reviewsData,
           }));
         })
         .catch((err) =>
@@ -96,43 +104,28 @@ function Review() {
       return;
     }
 
-    const userReview = getUserReview(productId);
-
     try {
-      if (userReview) {
-        // Update existing review (PUT or PATCH)
-        await axios.put(
-          `${BACKEND_URL}/api/store/products/${productId}/reviews/${userReview.id}/`,
-          { rating, comment },
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        );
-        alert("Review updated!");
-      } else {
-        // Create new review (POST)
-        const response = await axios.post(
-          `${BACKEND_URL}/api/store/products/${productId}/reviews/`,
-          { rating, comment, product_id: productId },
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        );
-        alert("Review submitted!");
+      const response = await axios.post(
+        `${BACKEND_URL}/api/store/products/${productId}/reviews/`,
+        { rating, comment, product_id: productId },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      alert("Review submitted!");
 
-        // Add the new review to existing reviews
-        setExistingReviews((prev) => ({
-          ...prev,
-          [productId]: prev[productId]
-            ? [...prev[productId], response.data]
-            : [response.data],
-        }));
-      }
+      setExistingReviews((prev) => ({
+        ...prev,
+        [productId]: prev[productId]
+          ? [...prev[productId], response.data]
+          : [response.data],
+      }));
 
-      // Clear input fields
       setReviews((prev) => ({
         ...prev,
         [productId]: { rating: 5, comment: "" },
       }));
     } catch (err) {
-      console.error("Failed to submit or update review", err);
-      alert("Failed to submit or update review.");
+      console.error("Failed to submit review", err);
+      alert("Failed to submit review.");
     }
   };
 

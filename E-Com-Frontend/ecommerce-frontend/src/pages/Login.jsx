@@ -20,9 +20,10 @@ function Login() {
     setLoading(true);
 
     try {
-      const payload = identifier.includes("@")
-        ? { email: identifier, password }
-        : { username: identifier, password };
+      const payload = {
+        username: identifier,
+        password,
+      };
 
       console.log("Login request payload:", payload, "URL:", `${BACKEND_URL}/api/user_app/login/`);
       const res = await axios.post(`${BACKEND_URL}/api/user_app/login/`, payload);
