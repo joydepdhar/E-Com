@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Trash2, Edit2, Plus, Search, ChevronDown } from "lucide-react";
 import axios from "axios";
+import { BACKEND_URL } from "../../config";
 
 function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -10,7 +11,6 @@ function UserManagement() {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ username: "", email: "", role: "user" });
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);

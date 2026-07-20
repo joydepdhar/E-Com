@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Save, AlertCircle } from "lucide-react";
 import axios from "axios";
+import { BACKEND_URL } from "../../config";
 
 function AdminSettings() {
   const [settings, setSettings] = useState({
@@ -20,7 +21,6 @@ function AdminSettings() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
   useEffect(() => {
     const fetchSettings = async () => {

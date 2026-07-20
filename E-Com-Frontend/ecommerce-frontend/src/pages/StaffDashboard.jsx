@@ -3,7 +3,7 @@ import axios from "axios";
 import { AuthContext } from "./AuthContext";
 import { Package, ShoppingCart, Users, Truck, AlertTriangle } from "lucide-react";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
+import { BACKEND_URL } from "../config";
 
 function StaffDashboard() {
   const { user } = useContext(AuthContext);

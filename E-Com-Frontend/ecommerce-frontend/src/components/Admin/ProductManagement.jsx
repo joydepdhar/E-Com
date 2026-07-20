@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Trash2, Edit2, Plus, Search } from "lucide-react";
 import axios from "axios";
+import { BACKEND_URL } from "../../config";
 
 function ProductManagement() {
   const [products, setProducts] = useState([]);
@@ -20,7 +21,6 @@ function ProductManagement() {
     image: "",
   });
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);

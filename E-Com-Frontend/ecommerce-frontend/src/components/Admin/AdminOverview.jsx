@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { TrendingUp, DollarSign, Users, Package, ArrowUp, ArrowDown, ShoppingCart } from "lucide-react";
 import axios from "axios";
+import { BACKEND_URL } from "../../config";
 
 function AdminOverview() {
   const [loading, setLoading] = useState(true);
@@ -15,7 +16,6 @@ function AdminOverview() {
     pendingOrders: 0,
   });
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
   const fetchDashboardData = useCallback(async () => {
     try {

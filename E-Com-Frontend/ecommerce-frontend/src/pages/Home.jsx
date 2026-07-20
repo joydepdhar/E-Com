@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
+import { BACKEND_URL } from "../config";
 const GITHUB_IMAGE_BASE =
   "https://raw.githubusercontent.com/joydepdhar/E-Com/master/E-Com/media/product_images/";
 

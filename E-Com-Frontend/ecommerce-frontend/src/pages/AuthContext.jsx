@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { AuthContext as SharedAuthContext } from "../context/AuthContext";
+import { BACKEND_URL, REQUEST_TIMEOUT_MS } from "../config";
 
 export const AuthContext = SharedAuthContext;
-
-const REQUEST_TIMEOUT_MS = 10000;
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);

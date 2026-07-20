@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Eye, CheckCircle, Clock, XCircle, Search } from "lucide-react";
 import axios from "axios";
+import { BACKEND_URL } from "../../config";
 
 function OrderManagement() {
   const [orders, setOrders] = useState([]);
@@ -10,7 +11,6 @@ function OrderManagement() {
   const [showModal, setShowModal] = useState(false);
   const [orderStatus, setOrderStatus] = useState("");
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
   const STATUS_OPTIONS = ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"];
 
   const getCustomerName = (order) =>
