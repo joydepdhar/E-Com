@@ -50,8 +50,6 @@ function Shop() {
       return;
     }
 
-    console.log("Adding to cart productId:", productId); // Debug
-
     try {
       await axios.post(
         `${API_BASE}/cart/`,

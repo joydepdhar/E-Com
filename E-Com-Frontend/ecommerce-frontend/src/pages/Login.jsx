@@ -25,7 +25,6 @@ function Login() {
         password,
       };
 
-      console.log("Login request payload:", payload, "URL:", `${BACKEND_URL}/api/user_app/login/`);
       const res = await axios.post(`${BACKEND_URL}/api/user_app/login/`, payload);
 
       const accessToken =
@@ -43,8 +42,6 @@ function Login() {
         console.error("Login response body:", res.data);
         throw new Error("Login response did not include access tokens.");
       }
-
-      console.log("Tokens from backend:", accessToken, refreshToken);
 
       const userProfile = await login(identifier, accessToken, refreshToken);
 
